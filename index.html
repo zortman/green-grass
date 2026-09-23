@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="meadow">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Green Grass</title>
+  <meta name="description" content="Green Grass — games, a built-in HTML emulator, live chat, and useful tools, all in one place." />
+  <meta name="theme-color" content="#050a07" />
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/app.css" />
+  <script>
+    // Apply saved theme before paint to avoid a flash.
+    try {
+      var t = JSON.parse(localStorage.getItem('gg.theme') || '"dark"');
+      var a = JSON.parse(localStorage.getItem('gg.accent') || '"meadow"');
+      document.documentElement.dataset.theme = t; document.documentElement.dataset.accent = a;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <noscript><p style="padding:40px;font-family:system-ui">Green Grass needs JavaScript enabled.</p></noscript>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

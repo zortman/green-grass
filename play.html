@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="meadow">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Play · Green Grass</title>
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/app.css" />
+  <style>
+    html, body { height: 100%; background: #000; }
+    body::before { display: none; }
+    .solo { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    .solo .stage { flex: 1; aspect-ratio: auto; max-height: none; min-height: 0; }
+    .solo .stage-bar { transition: margin-top .25s; }
+    .solo.hide-bar .stage-bar { margin-top: -53px; }
+  </style>
+  <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('gg.theme')||'"dark"');document.documentElement.dataset.accent=JSON.parse(localStorage.getItem('gg.accent')||'"meadow"')}catch(e){}</script>
+</head>
+<body>
+  <div class="solo" data-fs>
+    <div class="stage-bar">
+      <div class="stage-title"><a class="icon-btn" href="./#/games" title="Back to Green Grass" data-back></a><span data-title>Loading…</span></div>
+      <div class="stage-actions">
+        <button class="icon-btn" data-act="reload" title="Restart"></button>
+        <button class="icon-btn" data-act="download" title="Download"></button>
+        <button class="icon-btn" data-act="hide" title="Hide toolbar (H)"></button>
+        <button class="icon-btn" data-act="fs" title="Fullscreen (F)"></button>
+      </div>
+    </div>
+    <div class="stage"></div>
+  </div>
+  <script type="module">
+    import { installIcons, icon, applyTheme, $, $$, esc } from './assets/js/ui.js';
+    import { loadGame, loadSite, getCached } from './assets/js/data.js';
+    import { playGame, downloadGame } from './assets/js/player.js';
+    applyTheme(); installIcons();
+    const icons = { reload: 'refresh', download: 'download', hide: 'chevronDown', fs: 'maximize' };
+    $('[data-back]').innerHTML = icon('chevronLeft');
+    $$('[data-act]').forEach((b) => (b.innerHTML = icon(icons[b.dataset.act])));
+    const id = new URLSearchParams(location.search).get('id');
+    const stage = $('.stage');
+    const g = id && (await loadGame(id));
+    if (!g) {
+      $('[data-title]').textContent = 'Game not found';
+      stage.innerHTML = `<div class="stage-empty"><div class="stage-empty-icon danger">${icon('alert', 'xl')}</div><h3>Game not found</h3><a class="btn primary" href="./#/games">Browse games</a></div>`;
+    } else {
+      document.title = `${g.title} · Green Grass`;
+      $('[data-title]').textContent = g.title;
+      const settings = (getCached()?.settings) || (await loadSite()).settings;
+      let res = await playGame(stage, g, settings);
+      const act = async (a) => {
+        if (a === 'reload') { if (res) res.runner.reload(); else res = await playGame(stage, g, settings); }
+        if (a === 'download') downloadGame(g, res?.html);
+        if (a === 'hide') $('.solo').classList.toggle('hide-bar');
+        if (a === 'fs') document.fullscreenElement ? document.exitFullscreen() : $('.solo').requestFullscreen?.().catch(() => {});
+      };
+      $$('[data-act]').forEach((b) => (b.onclick = () => act(b.dataset.act)));
+      addEventListener('keydown', (e) => {
+        if (e.target !== document.body) return;
+        if (e.key === 'f') act('fs');
+        if (e.key === 'h') act('hide');
+      });
+      addEventListener('mousemove', (e) => { if (e.clientY < 8) $('.solo').classList.remove('hide-bar'); });
+    }
+  </script>
+</body>
+</html>

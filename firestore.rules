@@ -1,0 +1,129 @@
+rules_version = '2';
+
+// =====================================================================
+//  GREEN GRASS — Firestore security rules
+//  Paste this into Firebase console -> Firestore Database -> Rules,
+//  then click Publish. (Or deploy with: firebase deploy --only firestore:rules)
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------------------------------------------
+    //  ADMIN WHITELIST — edit these two emails (lowercase).
+    //  Must match ADMIN_EMAILS in assets/js/config.js.
+    // -----------------------------------------------------------------
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '').lower() in [
+          'admin-one@example.com',
+          'admin-two@example.com'
+        ];
+    }
+
+    function signedIn() { return request.auth != null; }
+    function isBanned() {
+      return exists(/databases/$(database)/documents/bans/$(request.auth.uid));
+    }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+
+    // ---------------- Site content ----------------
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /games/{id} {
+      // Public reads must query where('hidden', '==', false).
+      allow read: if resource.data.hidden == false || isAdmin();
+      allow create, delete: if isAdmin();
+      // Admins edit anything; everyone else may only add 1 to the play counter.
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plays'])
+        && request.resource.data.plays == resource.data.get('plays', 0) + 1
+      );
+    }
+
+    match /gameFiles/{gameId}/chunks/{chunk} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /links/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /patchnotes/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------- Reports (anyone can submit) ----------------
+    match /reports/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['type', 'message', 'contact', 'page', 'ua', 'status', 'createdAt'])
+        && str(request.resource.data.type, 1, 40)
+        && str(request.resource.data.message, 1, 2000)
+        && str(request.resource.data.contact, 0, 200)
+        && str(request.resource.data.page, 0, 200)
+        && str(request.resource.data.ua, 0, 300)
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ---------------- Chat ----------------
+    match /channels/{cid} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /messages/{mid} {
+        allow read: if true;
+        allow create: if signedIn()
+          && !isBanned()
+          && cid.matches('^[a-z0-9-]{1,32}$')
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'text', 'admin', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && str(request.resource.data.name, 1, 32)
+          && str(request.resource.data.text, 1, 500)
+          && request.resource.data.admin == isAdmin()
+          && request.resource.data.createdAt == request.time
+          // Rate limit: the same batch must stamp chatUsers/{uid}.lastPost
+          && getAfter(/databases/$(database)/documents/chatUsers/$(request.auth.uid)).data.lastPost == request.time
+          // Locked channels: admins only
+          && (isAdmin() || !exists(/databases/$(database)/documents/channels/$(cid))
+              || get(/databases/$(database)/documents/channels/$(cid)).data.get('locked', false) != true);
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      }
+    }
+
+    match /chatUsers/{uid} {
+      function validUser() {
+        return request.resource.data.keys().hasOnly(['name', 'lastPost'])
+          && str(request.resource.data.name, 1, 32);
+      }
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid && validUser()
+        && (!('lastPost' in request.resource.data) || request.resource.data.lastPost == request.time);
+      allow update: if signedIn() && request.auth.uid == uid && validUser() && (
+        // name-only change
+        request.resource.data.get('lastPost', null) == resource.data.get('lastPost', null)
+        // or a new post, at most one every 2 seconds
+        || (request.resource.data.lastPost == request.time
+            && (!('lastPost' in resource.data) || request.time > resource.data.lastPost + duration.value(2, 's')))
+      );
+    }
+
+    match /bans/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
