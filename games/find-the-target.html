@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find the Target</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #00ffcc;
+        }
+
+        .stat {
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        #distance {
+            font-weight: bold;
+            color: #ff3366;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #screen-canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .btn {
+            background: #00ffcc;
+            color: #111;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background: #fff;
+        }
+
+        #overlay h2 {
+            font-size: 40px;
+            margin: 0 0 10px 0;
+            color: #00ffcc;
+        }
+
+        #overlay p {
+            max-width: 500px;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>Tracker HUD</h1>
+        <div class="stat">Target Distance: <span id="distance">---</span>m</div>
+        <div class="stat" id="score-display">Score: 0</div>
+    </div>
+
+    <div id="overlay">
+        <h2 id="overlay-title">FIND THE TARGET</h2>
+        <p id="overlay-desc">Move your cursor away from your ship to fly. The further your mouse, the faster you go. Every NPC moves identically and looks exactly the same! Follow the distance tracker closely to deduce which one is the true target before clicking.</p>
+        <button class="btn" id="start-btn">START GAME</button>
+    </div>
+
+    <canvas id="screen-canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('screen-canvas');
+        const ctx = canvas.getContext('2d');
+        const distanceElement = document.getElementById('distance');
+        const scoreElement = document.getElementById('score-display');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayDesc = document.getElementById('overlay-desc');
+
+        // Game Configuration
+        const MAP_WIDTH = 4000;
+        const MAP_HEIGHT = 4000;
+        const NUM_DECOYS = 150;
+        const SPEED_MODIFIER = 0.05; 
+        const MAX_SPEED = 12;
+        const NPC_SPEED = 1.5; // Slightly slower speed for indistinguishable movement
+
+        // Game State
+        let gameState = 'START'; 
+        let score = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // Entities
+        const player = {
+            x: MAP_WIDTH / 2,
+            y: MAP_HEIGHT / 2,
+            radius: 15,
+            color: '#00ffcc'
+        };
+
+        let target = { x: 0, y: 0, radius: 25, vx: 0, vy: 0, color: '#6666ff' };
+        let decoys = [];
+        let stars = [];
+
+        // Track Screen Dimensions
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Generate Environment
+        function initGame() {
+            spawnTarget();
+
+            // Setup Moving Decoys
+            decoys = [];
+            for (let i = 0; i < NUM_DECOYS; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                decoys.push({
+                    x: Math.random() * MAP_WIDTH,
+                    y: Math.random() * MAP_HEIGHT,
+                    radius: 25,
+                    color: '#6666ff',
+                    vx: Math.cos(angle) * NPC_SPEED,
+                    vy: Math.sin(angle) * NPC_SPEED
+                });
+            }
+
+            // Background space stars
+            stars = [];
+            for (let i = 0; i < 400; i++) {
+                stars.push({
+                    x: Math.random() * MAP_WIDTH,
+                    y: Math.random() * MAP_HEIGHT,
+                    size: Math.random() * 2
+                });
+            }
+        }
+
+        function spawnTarget() {
+            do {
+                target.x = Math.random() * MAP_WIDTH;
+                target.y = Math.random() * MAP_HEIGHT;
+            } while (getDistance(player.x, player.y, target.x, target.y) < 1000);
+            
+            randomizeTargetVelocity();
+        }
+
+        function randomizeTargetVelocity() {
+            const angle = Math.random() * Math.PI * 2;
+            target.vx = Math.cos(angle) * NPC_SPEED;
+            target.vy = Math.sin(angle) * NPC_SPEED;
+        }
+
+        function randomizeNPCVelocity(npc) {
+            const angle = Math.random() * Math.PI * 2;
+            npc.vx = Math.cos(angle) * NPC_SPEED;
+            npc.vy = Math.sin(angle) * NPC_SPEED;
+        }
+
+        // Helper Math
+        function getDistance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        // Event Listeners
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState !== 'PLAYING') return;
+
+            const cameraX = player.x - canvas.width / 2;
+            const cameraY = player.y - canvas.height / 2;
+            const clickWorldX = e.clientX + cameraX;
+            const clickWorldY = e.clientY + cameraY;
+
+            // Check target click
+            const distToTarget = getDistance(clickWorldX, clickWorldY, target.x, target.y);
+            if (distToTarget <= target.radius) {
+                gameWin();
+                return;
+            }
+
+            // Check decoy click
+            for (let decoy of decoys) {
+                const distToDecoy = getDistance(clickWorldX, clickWorldY, decoy.x, decoy.y);
+                if (distToDecoy <= decoy.radius) {
+                    gameOver();
+                    return;
+                }
+            }
+        });
+
+        startBtn.addEventListener('click', () => {
+            if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'WIN') {
+                if (gameState !== 'WIN') score = 0;
+                player.x = MAP_WIDTH / 2;
+                player.y = MAP_HEIGHT / 2;
+                initGame();
+                gameState = 'PLAYING';
+                overlay.style.display = 'none';
+                scoreElement.textContent = `Score: ${score}`;
+            }
+        });
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            overlayTitle.textContent = "SYSTEM CRASHED!";
+            overlayTitle.style.color = "#ff3366";
+            overlayDesc.textContent = `You picked the wrong signal. Final Score: ${score}`;
+            startBtn.textContent = "TRY AGAIN";
+            overlay.style.display = 'flex';
+        }
+
+        function gameWin() {
+            gameState = 'WIN';
+            score += 1;
+            overlayTitle.textContent = "SIGNAL ACQUIRED!";
+            overlayTitle.style.color = "#00ffcc";
+            overlayDesc.textContent = `Target verified. Score: ${score}. Moving to next sector.`;
+            startBtn.textContent = "NEXT SENSE";
+            overlay.style.display = 'flex';
+        }
+
+        // Main Loop
+        function update() {
+            if (gameState === 'PLAYING') {
+                const screenCenterX = canvas.width / 2;
+                const screenCenterY = canvas.height / 2;
+
+                const dx = mouseX - screenCenterX;
+                const dy = mouseY - screenCenterY;
+                const mouseDist = Math.sqrt(dx * dx + dy * dy);
+
+                if (mouseDist > 10) {
+                    let speed = mouseDist * SPEED_MODIFIER;
+                    if (speed > MAX_SPEED) speed = MAX_SPEED;
+
+                    player.x += (dx / mouseDist) * speed;
+                    player.y += (dy / mouseDist) * speed;
+
+                    if (player.x < 0) player.x = 0;
+                    if (player.x > MAP_WIDTH) player.x = MAP_WIDTH;
+                    if (player.y < 0) player.y = 0;
+                    if (player.y > MAP_HEIGHT) player.y = MAP_HEIGHT;
+                }
+
+                // Update target position & boundary reflection
+                target.x += target.vx;
+                target.y += target.vy;
+                if (target.x < 0 || target.x > MAP_WIDTH) { target.vx *= -1; randomizeTargetVelocity(); }
+                if (target.y < 0 || target.y > MAP_HEIGHT) { target.vy *= -1; randomizeTargetVelocity(); }
+                if (Math.random() < 0.005) randomizeTargetVelocity();
+
+                // Update all decoy positions & movement behaviors to perfectly match the target
+                for (let decoy of decoys) {
+                    decoy.x += decoy.vx;
+                    decoy.y += decoy.vy;
+                    if (decoy.x < 0 || decoy.x > MAP_WIDTH) { decoy.vx *= -1; randomizeNPCVelocity(decoy); }
+                    if (decoy.y < 0 || decoy.y > MAP_HEIGHT) { decoy.vy *= -1; randomizeNPCVelocity(decoy); }
+                    if (Math.random() < 0.005) randomizeNPCVelocity(decoy);
+                }
+
+                const currentDist = getDistance(player.x, player.y, target.x, target.y);
+                distanceElement.textContent = Math.round(currentDist);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0a0a14';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cameraX = player.x - canvas.width / 2;
+            const cameraY = player.y - canvas.height / 2;
+
+            ctx.fillStyle = '#0f0f26';
+            ctx.fillRect(-cameraX, -cameraY, MAP_WIDTH, MAP_HEIGHT);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let star of stars) {
+                ctx.fillRect(star.x - cameraX, star.y - cameraY, star.size, star.size);
+            }
+
+            // Draw Decoys
+            for (let decoy of decoys) {
+                if (decoy.x - cameraX >= -50 && decoy.x - cameraX <= canvas.width + 50 &&
+                    decoy.y - cameraY >= -50 && decoy.y - cameraY <= canvas.height + 50) {
+                    
+                    ctx.beginPath();
+                    ctx.arc(decoy.x - cameraX, decoy.y - cameraY, decoy.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = decoy.color;
+                    ctx.shadowColor = decoy.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                }
+            }
+
+            // Draw Target NPC (Looks completely identical to decoys)
+            if (target.x - cameraX >= -50 && target.x - cameraX <= canvas.width + 50 &&
+                target.y - cameraY >= -50 && target.y - cameraY <= canvas.height + 50) {
+                ctx.beginPath();
+                ctx.arc(target.x - cameraX, target.y - cameraY, target.radius, 0, Math.PI * 2);
+                ctx.fillStyle = target.color;
+                ctx.shadowColor = target.color;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+            }
+
+            ctx.shadowBlur = 0;
+
+            // Draw Player
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = player.color;
+            ctx.fill();
+
+            const dx = mouseX - canvas.width / 2;
+            const dy = mouseY - canvas.height / 2;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 30 && gameState === 'PLAYING') {
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2 + (dx/dist)*25, canvas.height / 2 + (dy/dist)*25);
+                ctx.lineTo(canvas.width / 2 + (dx/dist)*50, canvas.height / 2 + (dy/dist)*50);
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>

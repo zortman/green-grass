@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarpScythe</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #080810;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            cursor: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+        .stats-container {
+            background: rgba(8, 8, 16, 0.75);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #1f2438;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        .stat-line {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .stat-line:last-child {
+            margin-bottom: 0;
+        }
+        #score-val { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
+        #multiplier-val { color: #ff00ff; text-shadow: 0 0 10px rgba(255,0,255,0.5); }
+        #combo-val { color: #ffff00; text-shadow: 0 0 10px rgba(255,255,0,0.5); }
+        #spawn-val { color: #ff3366; }
+
+        .hud-bottom {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .cooldown-container {
+            width: 400px;
+            background: rgba(8, 8, 16, 0.8);
+            border: 2px solid #1f2438;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+        }
+        .cooldown-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #8fa0dd;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: #111424;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #2d3561;
+        }
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00d2ff 0%, #0066ff 100%);
+            box-shadow: 0 0 12px #00a2ff;
+            transition: width 0.05s linear;
+        }
+
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(6, 6, 12, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+            transition: opacity 0.3s ease;
+        }
+        .menu-box {
+            max-width: 550px;
+            width: 90%;
+            background: rgba(16, 18, 35, 0.95);
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.25);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+        }
+        .menu-box.game-over-box {
+            border-color: #ff3366;
+            box-shadow: 0 0 40px rgba(255, 51, 102, 0.25);
+        }
+        h1 {
+            font-size: 42px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #00ffcc 0%, #0066ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0,255,204,0.2);
+        }
+        .game-over-box h1 {
+            background: linear-gradient(135deg, #ff3366 0%, #ff0055 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .instructions {
+            text-align: left;
+            line-height: 1.6;
+            color: #b0b7e1;
+            margin-bottom: 30px;
+            font-size: 15px;
+        }
+        .instructions ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #00ffcc 0%, #00a2ff 100%);
+            border: none;
+            color: #06060c;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 255, 204, 0.5);
+        }
+        .game-over-box .btn {
+            background: linear-gradient(135deg, #ff3366 0%, #ff0055 100%);
+            color: #fff;
+            box-shadow: 0 5px 15px rgba(255, 51, 102, 0.3);
+        }
+        .game-over-box .btn:hover {
+            box-shadow: 0 8px 25px rgba(255, 51, 102, 0.5);
+        }
+        .final-score {
+            font-size: 24px;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        .hidden {
+            display: none !important;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="hud-top">
+            <div class="stats-container">
+                <div class="stat-line">Score: <span id="score-val">0</span></div>
+                <div class="stat-line">Multiplier: <span id="multiplier-val">1x</span></div>
+                <div class="stat-line">Combo: <span id="combo-val">0</span></div>
+            </div>
+            <div class="stats-container">
+                <div class="stat-line">Spawn Rate: <span id="spawn-val">1.0s</span></div>
+            </div>
+        </div>
+
+        <div class="hud-bottom">
+            <div class="cooldown-container">
+                <div class="cooldown-title">WarpScythe Recharge</div>
+                <div class="progress-bar-bg">
+                    <div id="cooldown-fill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="main-menu" class="screen-overlay">
+        <div class="menu-box">
+            <h1>WarpScythe</h1>
+            <div class="instructions">
+                <p>Welcome to the grid. Your weapon auto-teleports continuously along your target coordinates.</p>
+                <ul>
+                    <li>⚡ <strong>Auto-Teleport:</strong> Every <strong>1 second</strong>, you blink directly to your mouse crosshair cursor position.</li>
+                    <li>⚔️ <strong>Slicing Mechanism:</strong> Any cube intersection across your direct warp trajectory line will be sliced instantly.</li>
+                    <li>🔥 <strong>Combo Mechanics:</strong> Slices build up your dynamic Combo meter. <strong>Missing a cube during a teleport resets your combo back to 0.</strong></li>
+                    <li>💎 <strong>Permanent Multipliers:</strong> Neon-magenta multiplier cubes grant a <strong>permanent +1x points multiplier stack</strong> that lasts for your entire run.</li>
+                    <li>⚠️ <strong>Survival Constraints:</strong> Normal cubes turn from yellow to red over a <strong>15-second fuse</strong>, flashing white under 5 seconds. If a single fuse fully expires, it detonates and ends your run.</li>
+                </ul>
+            </div>
+            <button class="btn" id="start-btn">Initiate Run</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER OVERLAY -->
+    <div id="game-over-screen" class="screen-overlay hidden">
+        <div class="menu-box game-over-box">
+            <h1>Grid Cleared</h1>
+            <div class="final-score">Final Score: <span id="final-score-val" style="color: #ff3366;">0</span></div>
+            <div class="instructions" style="text-align: center; margin-bottom: 25px;">
+                <p>A cube countdown timer expired, triggering a grid system collapse.</p>
+            </div>
+            <button class="btn" id="restart-btn">Re-Link System</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Nodes
+        const scoreVal = document.getElementById('score-val');
+        const multiplierVal = document.getElementById('multiplier-val');
+        const comboVal = document.getElementById('combo-val');
+        const spawnVal = document.getElementById('spawn-val');
+        const cooldownFill = document.getElementById('cooldown-fill');
+        const mainMenu = document.getElementById('main-menu');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreVal = document.getElementById('final-score-val');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Track Canvas Scale Coordinates
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // Mouse Trapping
+        let mouseX = width / 2;
+        let mouseY = height / 2;
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Game Settings Constants
+        const TELEPORT_COOLDOWN = 1000; // Fast-paced 1 second cooldown
+        const BASE_CUBE_LIFETIME = 15000; // 15 seconds
+        const MULTIPLIER_CHANCE = 0.12; // 12% spawn rate chance
+        const BASE_SPAWN_INTERVAL = 1800; // Starts at 1.8s
+        const MIN_SPAWN_INTERVAL = 450; // Cap floor complexity at 0.45s
+
+        // State Machine Objects
+        let gameState = 'MENU'; // MENU, PLAYING, EXPLODING, GAMEOVER
+        let score = 0;
+        let currentMultiplier = 1;
+        let combo = 0;
+        
+        let playerX = width / 2;
+        let playerY = height / 2;
+        let lastTeleportTime = 0;
+        let lastSpawnTime = 0;
+        let gameStartTime = 0;
+        let spawnInterval = BASE_SPAWN_INTERVAL;
+
+        let cubes = [];
+        let particles = [];
+        let sliceLines = [];
+
+        // Setup Event Interfaces
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        function startGame() {
+            mainMenu.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            // Re-initialize values
+            score = 0;
+            currentMultiplier = 1;
+            combo = 0;
+            spawnInterval = BASE_SPAWN_INTERVAL;
+            cubes = [];
+            particles = [];
+            sliceLines = [];
+            
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            playerX = width / 2;
+            playerY = height / 2;
+            
+            const now = performance.now();
+            lastTeleportTime = now;
+            lastSpawnTime = now - 500; // Kick off initial spawn quickly
+            gameStartTime = now;
+            
+            updateHUD();
+            gameState = 'PLAYING';
+        }
+
+        function updateHUD() {
+            scoreVal.textContent = score;
+            multiplierVal.textContent = currentMultiplier + 'x';
+            comboVal.textContent = combo;
+            spawnVal.textContent = (spawnInterval / 1000).toFixed(2) + 's';
+        }
+
+        // Mathematical Capsule/Sweep Slicing Engines
+        function checkLineBoxIntersection(x1, y1, x2, y2, bx, by, bw, bh) {
+            // Buffer expanded boundary check wrapper
+            const padding = 12;
+            const left = bx - padding;
+            const right = bx + bw + padding;
+            const top = by - padding;
+            const bottom = by + bh + padding;
+
+            // Step 1: Check if endpoint lies cleanly within the box bounds
+            if (x2 >= left && x2 <= right && y2 >= top && y2 <= bottom) return true;
+            if (x1 >= left && x1 <= right && y1 >= top && y1 <= bottom) return true;
+
+            // Step 2: Line sweep bounding box intersection
+            const minX = Math.min(x1, x2);
+            const maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2);
+            const maxY = Math.max(y1, y2);
+
+            if (maxX < left || minX > right || maxY < top || minY > bottom) return false;
+
+            // Line equations vs box 4 wall vectors
+            const m = (y2 - y1) / (x2 - x1 || 0.0001);
+            const c = y1 - m * x1;
+
+            // Left edge
+            let yIntersect = m * left + c;
+            if (yIntersect >= top && yIntersect <= bottom && left >= minX && left <= maxX) return true;
+
+            // Right edge
+            yIntersect = m * right + c;
+            if (yIntersect >= top && yIntersect <= bottom && right >= minX && right <= maxX) return true;
+
+            // Top edge
+            let xIntersect = (top - c) / m;
+            if (xIntersect >= left && xIntersect <= right && top >= minY && top <= maxY) return true;
+
+            // Bottom edge
+            xIntersect = (bottom - c) / m;
+            if (xIntersect >= left && xIntersect <= right && bottom >= minY && bottom <= maxY) return true;
+
+            return false;
+        }
+
+        function createExplosion(x, y, color, count = 25, speedMultiplier = 1) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (Math.random() * 5 + 3) * speedMultiplier;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.02 + 0.015
+                });
+            }
+        }
+
+        function spawnCube() {
+            const size = Math.random() * 15 + 35; // Size between 35 and 50px
+            const x = Math.random() * (width - size - 60) + 30;
+            const y = Math.random() * (height - size - 140) + 60; // Keep space away from bottom HUD clear
+
+            const isMultiplier = Math.random() < MULTIPLIER_CHANCE;
+
+            cubes.push({
+                x: x,
+                y: y,
+                size: size,
+                isMultiplier: isMultiplier,
+                createdAt: performance.now(),
+                lifetime: BASE_CUBE_LIFETIME
+            });
+        }
+
+        function handleTeleportSlices() {
+            const targetX = mouseX;
+            const targetY = mouseY;
+
+            // Record trajectory trail geometry for drawing engine
+            sliceLines.push({
+                x1: playerX,
+                y1: playerY,
+                x2: targetX,
+                y2: targetY,
+                createdAt: performance.now(),
+                duration: 350
+            });
+
+            let hitAny = false;
+            let hitsThisTurn = [];
+
+            // Sweep and trace intersections against all active cubes
+            for (let i = cubes.length - 1; i >= 0; i--) {
+                const cube = cubes[i];
+                if (checkLineBoxIntersection(playerX, playerY, targetX, targetY, cube.x, cube.y, cube.size, cube.size)) {
+                    hitAny = true;
+                    hitsThisTurn.push(i);
+                }
+            }
+
+            if (hitAny) {
+                // Remove hit entries from back to front to avoid array shifting bugs
+                hitsThisTurn.sort((a, b) => b - a);
+                hitsThisTurn.forEach(index => {
+                    const cube = cubes[index];
+                    if (cube.isMultiplier) {
+                        currentMultiplier += 1; // Direct incremental stacking
+                        createExplosion(cube.x + cube.size/2, cube.y + cube.size/2, '#ff00ff', 40, 1.3);
+                    } else {
+                        combo++;
+                        score += 10 * currentMultiplier * combo;
+                        createExplosion(cube.x + cube.size/2, cube.y + cube.size/2, '#ffcc00', 25, 1);
+                    }
+                    cubes.splice(index, 1);
+                });
+            } else {
+                // Intersections missed entirely, break combo streak chain
+                combo = 0;
+            }
+
+            // Snap player position straight to coordinates
+            playerX = targetX;
+            playerY = targetY;
+            updateHUD();
+        }
+
+        // Primary Core Loop Functions
+        function update(now) {
+            if (gameState === 'PLAYING') {
+                // Dynamically ramp difficulty scaling values up based on elapsed baseline
+                const elapsedSeconds = (now - gameStartTime) / 1000;
+                spawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL - (elapsedSeconds * 30));
+
+                // Cube Spawning Trigger
+                if (now - lastSpawnTime >= spawnInterval) {
+                    spawnCube();
+                    lastSpawnTime = now;
+                    updateHUD();
+                }
+
+                // Automatic 1-Second Teleport Cooldown Execution
+                let timeSinceTeleport = now - lastTeleportTime;
+                if (timeSinceTeleport >= TELEPORT_COOLDOWN) {
+                    handleTeleportSlices();
+                    lastTeleportTime = now;
+                    timeSinceTeleport = 0;
+                }
+
+                // Calculate Progress Bar Render
+                const fillPercent = Math.min(100, (timeSinceTeleport / TELEPORT_COOLDOWN) * 100);
+                cooldownFill.style.width = fillPercent + '%';
+
+                // Evaluate Cube Timers & Countdown Progress
+                for (let i = cubes.length - 1; i >= 0; i--) {
+                    const cube = cubes[i];
+                    const elapsed = now - cube.createdAt;
+                    const timeLeft = cube.lifetime - elapsed;
+
+                    if (timeLeft <= 0) {
+                        // Critical Exploding Game-Over Loop
+                        gameState = 'EXPLODING';
+                        createExplosion(cube.x + cube.size/2, cube.y + cube.size/2, '#ff3366', 120, 2.5);
+                        break;
+                    }
+                }
+            }
+
+            // Process Active Trajectory Slice Trails
+            for (let i = sliceLines.length - 1; i >= 0; i--) {
+                if (now - sliceLines[i].createdAt > sliceLines[i].duration) {
+                    sliceLines.splice(i, 1);
+                }
+            }
+
+            // Process Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Halt animation frames and route to UI when detonation particle sequence dies down
+            if (gameState === 'EXPLODING' && particles.length === 0) {
+                gameState = 'GAMEOVER';
+                finalScoreVal.textContent = score;
+                gameOverScreen.classList.remove('hidden');
+            }
+        }
+
+        function draw(now) {
+            // Clear canvas grid backdrop
+            ctx.fillStyle = '#06060c';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Subtle Space Grid Pattern Lines
+            ctx.strokeStyle = '#121626';
+            ctx.lineWidth = 1;
+            const gridSpacing = 50;
+            for (let x = 0; x < width; x += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Draw Teleport Line Sweeps
+            sliceLines.forEach(line => {
+                const age = now - line.createdAt;
+                const alpha = 1 - (age / line.duration);
+                ctx.strokeStyle = `rgba(0, 210, 255, ${alpha})`;
+                ctx.lineWidth = 4 * alpha;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00a2ff';
+                ctx.beginPath();
+                ctx.moveTo(line.x1, line.y1);
+                ctx.lineTo(line.x2, line.y2);
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset canvas shadow context
+            });
+
+            // Draw Active Cubes
+            if (gameState === 'PLAYING' || gameState === 'EXPLODING') {
+                cubes.forEach(cube => {
+                    const elapsed = now - cube.createdAt;
+                    const timeLeft = Math.max(0, cube.lifetime - elapsed);
+                    const pct = timeLeft / cube.lifetime;
+
+                    ctx.save();
+                    
+                    if (cube.isMultiplier) {
+                        // Draw Neon-Magenta Score Multiplier Blocks
+                        ctx.fillStyle = '#ff00ff';
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#ff00ff';
+                        ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+                        ctx.strokeRect(cube.x, cube.y, cube.size, cube.size);
+                        
+                        // Icon typography design overlay inside block
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 14px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.shadowBlur = 0;
+                        ctx.fillText('2X', cube.x + cube.size/2, cube.y + cube.size/2);
+                    } else {
+                        // Normal Cube - Color transition formula (Yellow -> Dark Red)
+                        let baseColor;
+                        
+                        if (timeLeft < 5000) {
+                            // Under 5 seconds remaining: Flash aggressively to White
+                            const flashInterval = timeLeft < 2000 ? 150 : 300; // Accelerates near 0
+                            const flashState = Math.floor(timeLeft / flashInterval) % 2 === 0;
+                            baseColor = flashState ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 30, 0, 1)';
+                            ctx.shadowBlur = 20;
+                            ctx.shadowColor = '#ff3300';
+                        } else {
+                            // Standard 15s to 5s safety ramp matrix window interpolation
+                            const red = 255;
+                            const green = Math.floor(255 * ((pct - 0.33) / 0.67));
+                            baseColor = `rgb(${red}, ${Math.max(0, green)}, 0)`;
+                            ctx.shadowBlur = 8;
+                            ctx.shadowColor = baseColor;
+                        }
+
+                        ctx.fillStyle = baseColor;
+                        ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                        ctx.strokeRect(cube.x, cube.y, cube.size, cube.size);
+                        ctx.shadowBlur = 0;
+
+                        // Discrete mini health timeline bar underneath each square element
+                        const barH = 4;
+                        const barW = cube.size;
+                        const barX = cube.x;
+                        const barY = cube.y + cube.size + 6;
+
+                        ctx.fillStyle = 'rgba(20, 20, 35, 0.6)';
+                        ctx.fillRect(barX, barY, barW, barH);
+                        ctx.fillStyle = timeLeft < 5000 ? '#ff3366' : '#ffff00';
+                        ctx.fillRect(barX, barY, barW * pct, barH);
+                    }
+                    ctx.restore();
+                });
+            }
+
+            // Draw Floating Explosion Particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0; // Reset blending state transparency alpha
+
+            // Draw Foreground Glowing Player Coordinates
+            if (gameState === 'PLAYING') {
+                ctx.save();
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = '#00ffcc';
+                ctx.fillStyle = '#00ffcc';
+                ctx.beginPath();
+                ctx.arc(playerX, playerY, 9, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Inner core overlay accent
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(playerX, playerY, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Minimal Crosshair Pointer Sights
+            if (gameState === 'PLAYING') {
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                
+                // Outer Targeting Circle Reticle
+                ctx.arc(mouseX, mouseY, 12, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Centered cross lines hair structure
+                ctx.beginPath();
+                ctx.moveTo(mouseX - 4, mouseY); ctx.lineTo(mouseX + 4, mouseY);
+                ctx.moveTo(mouseX, mouseY - 4); ctx.lineTo(mouseX, mouseY + 4);
+                ctx.stroke();
+            }
+        }
+
+        function loop() {
+            const now = performance.now();
+            update(now);
+            draw(now);
+            requestAnimationFrame(loop);
+        }
+
+        // Run Engine Init Loops
+        loop();
+    </script>
+</body>
+</html>

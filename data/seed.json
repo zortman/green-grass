@@ -6,44 +6,313 @@
       "text": "Local HTML files have been blocked on some devices. Use the built-in Emulator for now — it still works."
     },
     "chatChannels": [
-      { "id": "general", "name": "general", "topic": "Talk about anything (keep it clean)" },
-      { "id": "games", "name": "games", "topic": "Game requests, high scores, tips" },
-      { "id": "help", "name": "help", "topic": "Something broken? Ask here" }
+      {
+        "id": "general",
+        "name": "general",
+        "topic": "Talk about anything (keep it clean)"
+      },
+      {
+        "id": "games",
+        "name": "games",
+        "topic": "Game requests, high scores, tips"
+      },
+      {
+        "id": "help",
+        "name": "help",
+        "topic": "Something broken? Ask here"
+      }
     ],
     "methodMarkdown": "## The short version\nWe no longer rely on websites. We use **HTML files** that open straight in your browser, with everything embedded inside the file.\n\n1. Download the file.\n2. Open it from your Files app.\n3. It opens in a new tab on your device.\n\n[Example: a single-file game](https://drive.google.com/file/d/1EL-_EpKERRsWK0hxTDBgmGZUWD3-AGm2/view?usp=sharing)\n\n> [!warning] Status update\n> Local HTML files were recently blocked on some devices. We're working on a workaround — until then, use the **Emulator** (it still works).\n\n## Why it works\nThe district uses Securly. Securly filters websites, but it doesn't filter the contents of HTML files you open yourself. It *can* block `file:///`, but that would also break a lot of normal school work that relies on local files, so it's unlikely to happen.\n\nMost students only use websites that can be blocked. Self-contained HTML files are a different approach entirely.\n\n## What's planned\n- Games\n- Movies\n- Music\n- And more"
   },
   "games": [
-    { "id": "find-the-target", "title": "Find the Target", "category": "Arcade", "description": "Track down the target before time runs out.", "source": "drive", "driveId": "1VJKwNvAwSNT6xT4c1yEIQ7Rqneq55m70", "logo": "assets/logos/find-the-target.png", "featured": true, "hidden": false, "order": 1, "plays": 0 },
-    { "id": "piano-tiles", "title": "Piano Tiles", "category": "Rhythm", "description": "Tap the black tiles, never the white ones.", "source": "drive", "driveId": "1lwsCfLT8DaENvwHGucWvt6-RHunJaX6H", "logo": "assets/logos/piano-tiles.png", "featured": false, "hidden": false, "order": 2, "plays": 0 },
-    { "id": "virus-snake", "title": "Virus Snake", "category": "Arcade", "description": "Classic snake with an infectious twist.", "source": "drive", "driveId": "1sXc2IbVN0BIBr9Is8rQEV-fECZOp7tii", "logo": "assets/logos/virus-snake.png", "featured": false, "hidden": false, "order": 3, "plays": 0 },
-    { "id": "ghorde1", "title": "GHorde1", "category": "Shooter", "description": "Top-down 8-bit zombie wave shooter. Survive, upgrade, repeat.", "source": "drive", "driveId": "1sjb9RId8UTxJEV-InGO7Q1Y0i6h_Vryd", "logo": "assets/logos/ghorde1.png", "featured": true, "hidden": false, "order": 4, "plays": 0 },
-    { "id": "meteor-mayhem", "title": "Meteor Mayhem", "category": "Arcade", "description": "Dodge and destroy an endless meteor storm.", "source": "drive", "driveId": "1Hsl4xPJiHrfswcQgvPypV0tnX8hmmBt0", "logo": "assets/logos/meteor-mayhem.png", "featured": false, "hidden": false, "order": 5, "plays": 0 },
-    { "id": "singularity-drive", "title": "Singularity Drive", "category": "Action", "description": "Pilot through the pull of a black hole.", "source": "drive", "driveId": "1xIvQuaL_xkdS0QPo118QnVuQeQMbjFty", "logo": "assets/logos/singularity-drive.png", "featured": true, "hidden": false, "order": 6, "plays": 0 },
-    { "id": "warpscythe", "title": "WarpScythe", "category": "Action", "description": "Warp, slash and survive.", "source": "drive", "driveId": "1iMBm14jweHaffbrEf-T0-XnmrptmT4j3", "logo": "assets/logos/warpscythe.png", "featured": false, "hidden": false, "order": 7, "plays": 0 }
+    {
+      "id": "find-the-target",
+      "title": "Find the Target",
+      "category": "Arcade",
+      "description": "Track down the target before time runs out.",
+      "source": "file",
+      "driveId": "1VJKwNvAwSNT6xT4c1yEIQ7Rqneq55m70",
+      "logo": "assets/logos/find-the-target.png",
+      "featured": true,
+      "hidden": false,
+      "order": 1,
+      "plays": 0,
+      "file": "games/find-the-target.html"
+    },
+    {
+      "id": "piano-tiles",
+      "title": "Piano Tiles",
+      "category": "Rhythm",
+      "description": "Tap the black tiles, never the white ones.",
+      "source": "file",
+      "driveId": "1lwsCfLT8DaENvwHGucWvt6-RHunJaX6H",
+      "logo": "assets/logos/piano-tiles.png",
+      "featured": false,
+      "hidden": false,
+      "order": 2,
+      "plays": 0,
+      "file": "games/piano-tiles.html"
+    },
+    {
+      "id": "virus-snake",
+      "title": "Virus Snake",
+      "category": "Arcade",
+      "description": "Classic snake with an infectious twist.",
+      "source": "file",
+      "driveId": "1sXc2IbVN0BIBr9Is8rQEV-fECZOp7tii",
+      "logo": "assets/logos/virus-snake.png",
+      "featured": false,
+      "hidden": false,
+      "order": 3,
+      "plays": 0,
+      "file": "games/virus-snake.html"
+    },
+    {
+      "id": "ghorde1",
+      "title": "GHorde1",
+      "category": "Shooter",
+      "description": "Top-down 8-bit zombie wave shooter. Survive, upgrade, repeat.",
+      "source": "file",
+      "driveId": "1sjb9RId8UTxJEV-InGO7Q1Y0i6h_Vryd",
+      "logo": "assets/logos/ghorde1.png",
+      "featured": true,
+      "hidden": false,
+      "order": 4,
+      "plays": 0,
+      "file": "games/ghorde1.html"
+    },
+    {
+      "id": "meteor-mayhem",
+      "title": "Meteor Mayhem",
+      "category": "Arcade",
+      "description": "Dodge and destroy an endless meteor storm.",
+      "source": "file",
+      "driveId": "1Hsl4xPJiHrfswcQgvPypV0tnX8hmmBt0",
+      "logo": "assets/logos/meteor-mayhem.png",
+      "featured": false,
+      "hidden": false,
+      "order": 5,
+      "plays": 0,
+      "file": "games/meteor-mayhem.html"
+    },
+    {
+      "id": "singularity-drive",
+      "title": "Singularity Drive",
+      "category": "Action",
+      "description": "Pilot through the pull of a black hole.",
+      "source": "file",
+      "driveId": "1xIvQuaL_xkdS0QPo118QnVuQeQMbjFty",
+      "logo": "assets/logos/singularity-drive.png",
+      "featured": true,
+      "hidden": false,
+      "order": 6,
+      "plays": 0,
+      "file": "games/singularity-drive.html"
+    },
+    {
+      "id": "warpscythe",
+      "title": "WarpScythe",
+      "category": "Action",
+      "description": "Warp, slash and survive.",
+      "source": "file",
+      "driveId": "1iMBm14jweHaffbrEf-T0-XnmrptmT4j3",
+      "logo": "assets/logos/warpscythe.png",
+      "featured": false,
+      "hidden": false,
+      "order": 7,
+      "plays": 0,
+      "file": "games/warpscythe.html"
+    }
   ],
   "links": [
-    { "id": "mirror-1", "title": "Static Mirror 1", "url": "https://d2gve52fz9syn8.cloudfront.net/", "category": "static", "description": "Unblocked static site", "order": 1 },
-    { "id": "mirror-2", "title": "Static Mirror 2", "url": "https://d3tecwpbnz01jy.cloudfront.net/", "category": "static", "description": "Unblocked static site", "order": 2 },
-    { "id": "mirror-3", "title": "Static Mirror 3", "url": "https://dnrweqffuwjtx.cloudfront.net/", "category": "static", "description": "Unblocked static site", "order": 3 },
-    { "id": "mirror-4", "title": "Static Mirror 4", "url": "https://d1tmbzjih4bfq6.cloudfront.net/", "category": "static", "description": "Unblocked static site", "order": 4 },
-    { "id": "mirror-5", "title": "Static Mirror 5", "url": "https://d11jzht7mj96rr.cloudfront.net/", "category": "static", "description": "Unblocked static site", "order": 5 },
-    { "id": "github", "title": "GitHub", "url": "https://github.com", "category": "useful", "description": "Code hosting — and where this site lives", "order": 10 },
-    { "id": "free-for-dev", "title": "Free for Dev", "url": "https://free-for.dev/#/", "category": "useful", "description": "Huge list of free developer services", "order": 11 },
-    { "id": "devhints", "title": "Devhints", "url": "https://devhints.io/", "category": "useful", "description": "Cheat sheets for every language", "order": 12 },
-    { "id": "freephone", "title": "Free Temp SMS Number", "url": "https://freephone.io/us/%2B19517189378", "category": "useful", "description": "Temporary phone number for SMS", "order": 13 },
-    { "id": "src-maker", "title": "Source Code File Maker", "url": "https://script.google.com/a/macros/aguafria.org/s/AKfycbw7Ee-Bnn2wMyGDlLLA_v5NCPodqCQaAlZ3ZrEFc47Thiymu5pAnjFTo5oGdAd0Tb9h/exec", "category": "tools", "description": "Make source code files", "order": 20 },
-    { "id": "other-files", "title": "Other File Maker", "url": "https://script.google.com/a/macros/aguafria.org/s/AKfycbyJ1NonGTbqrKOteBaJxNuM6A4pBhMI_RIPWvcu1xkKc22lu9zYN1YJ_-p6T4Xx-tBi/exec", "category": "tools", "description": "Make other file types", "order": 21 },
-    { "id": "src-chatapp", "title": "Chatapp (source)", "url": "https://drive.google.com/file/d/1njvhzp3F_tTDTFByOK8v2SQKwiShGXdt/view?usp=sharing", "category": "tools", "description": "Source code for the original chat app", "order": 22 },
-    { "id": "src-txtfilemaker", "title": "Txtfilemaker (source)", "url": "https://drive.google.com/file/d/1kHQZVnQ0ii_UXlwZqu90mxl6gwAufRnF/view?usp=drive_link", "category": "tools", "description": "Source code for the text file maker", "order": 23 },
-    { "id": "src-emulator", "title": "HTML Emulator (source)", "url": "https://drive.google.com/file/d/1hQYfZMznWlRYiSpliSnxFwLUa8EvIM7l/view?usp=drive_link", "category": "tools", "description": "Source code for the original emulator", "order": 24 },
-    { "id": "doc-notifier", "title": "Doc Edit Notifier Script", "url": "https://script.google.com/d/1fYj07cTKtdhB6FHzufMBZrmNkSgUjk7CfNiY69it06PMFsLg2HfcOw2p/edit?usp=sharing", "category": "tools", "description": "Get an email when the doc is edited. Make a copy, add Drive services, set your email.", "order": 25 }
+    {
+      "id": "mirror-1",
+      "title": "Static Mirror 1",
+      "url": "https://d2gve52fz9syn8.cloudfront.net/",
+      "category": "static",
+      "description": "Unblocked static site",
+      "order": 1
+    },
+    {
+      "id": "mirror-2",
+      "title": "Static Mirror 2",
+      "url": "https://d3tecwpbnz01jy.cloudfront.net/",
+      "category": "static",
+      "description": "Unblocked static site",
+      "order": 2
+    },
+    {
+      "id": "mirror-3",
+      "title": "Static Mirror 3",
+      "url": "https://dnrweqffuwjtx.cloudfront.net/",
+      "category": "static",
+      "description": "Unblocked static site",
+      "order": 3
+    },
+    {
+      "id": "mirror-4",
+      "title": "Static Mirror 4",
+      "url": "https://d1tmbzjih4bfq6.cloudfront.net/",
+      "category": "static",
+      "description": "Unblocked static site",
+      "order": 4
+    },
+    {
+      "id": "mirror-5",
+      "title": "Static Mirror 5",
+      "url": "https://d11jzht7mj96rr.cloudfront.net/",
+      "category": "static",
+      "description": "Unblocked static site",
+      "order": 5
+    },
+    {
+      "id": "github",
+      "title": "GitHub",
+      "url": "https://github.com",
+      "category": "useful",
+      "description": "Code hosting — and where this site lives",
+      "order": 10
+    },
+    {
+      "id": "free-for-dev",
+      "title": "Free for Dev",
+      "url": "https://free-for.dev/#/",
+      "category": "useful",
+      "description": "Huge list of free developer services",
+      "order": 11
+    },
+    {
+      "id": "devhints",
+      "title": "Devhints",
+      "url": "https://devhints.io/",
+      "category": "useful",
+      "description": "Cheat sheets for every language",
+      "order": 12
+    },
+    {
+      "id": "freephone",
+      "title": "Free Temp SMS Number",
+      "url": "https://freephone.io/us/%2B19517189378",
+      "category": "useful",
+      "description": "Temporary phone number for SMS",
+      "order": 13
+    },
+    {
+      "id": "src-maker",
+      "title": "Source Code File Maker",
+      "url": "https://script.google.com/a/macros/aguafria.org/s/AKfycbw7Ee-Bnn2wMyGDlLLA_v5NCPodqCQaAlZ3ZrEFc47Thiymu5pAnjFTo5oGdAd0Tb9h/exec",
+      "category": "tools",
+      "description": "Make source code files",
+      "order": 20
+    },
+    {
+      "id": "other-files",
+      "title": "Other File Maker",
+      "url": "https://script.google.com/a/macros/aguafria.org/s/AKfycbyJ1NonGTbqrKOteBaJxNuM6A4pBhMI_RIPWvcu1xkKc22lu9zYN1YJ_-p6T4Xx-tBi/exec",
+      "category": "tools",
+      "description": "Make other file types",
+      "order": 21
+    },
+    {
+      "id": "src-chatapp",
+      "title": "Chatapp (source)",
+      "url": "https://drive.google.com/file/d/1njvhzp3F_tTDTFByOK8v2SQKwiShGXdt/view?usp=sharing",
+      "category": "tools",
+      "description": "Source code for the original chat app",
+      "order": 22
+    },
+    {
+      "id": "src-txtfilemaker",
+      "title": "Txtfilemaker (source)",
+      "url": "https://drive.google.com/file/d/1kHQZVnQ0ii_UXlwZqu90mxl6gwAufRnF/view?usp=drive_link",
+      "category": "tools",
+      "description": "Source code for the text file maker",
+      "order": 23
+    },
+    {
+      "id": "src-emulator",
+      "title": "HTML Emulator (source)",
+      "url": "https://drive.google.com/file/d/1hQYfZMznWlRYiSpliSnxFwLUa8EvIM7l/view?usp=drive_link",
+      "category": "tools",
+      "description": "Source code for the original emulator",
+      "order": 24
+    },
+    {
+      "id": "doc-notifier",
+      "title": "Doc Edit Notifier Script",
+      "url": "https://script.google.com/d/1fYj07cTKtdhB6FHzufMBZrmNkSgUjk7CfNiY69it06PMFsLg2HfcOw2p/edit?usp=sharing",
+      "category": "tools",
+      "description": "Get an email when the doc is edited. Make a copy, add Drive services, set your email.",
+      "order": 25
+    }
   ],
   "patchnotes": [
-    { "id": "v2-0", "version": "2.0", "title": "Official site launch", "date": "2026-09-22", "tags": ["new"], "order": 60, "pinned": true, "body": "The official Green Grass site is live.\n\n- **Game library** with search, categories, favorites and one-click play\n- **Green Grass Emulator** — our own HTML runner. Open files, paste code, or load Drive links\n- **Live chat** with channels, built right into the site\n- **Link Checker** — test whether a site is reachable from your network\n- **Patch notes**, the Method guide, and a curated links page\n- **Admin dashboard** for managing everything\n- First-visit **onboarding** tour" },
-    { "id": "local-blocked", "version": "", "title": "Local HTML files blocked", "date": "", "tags": ["notice"], "order": 50, "body": "As of recently, local HTML files have been blocked on some devices. We're working on a workaround.\n\nFor now, stick to the emulator — it still works." },
-    { "id": "site-wip", "version": "", "title": "Official site in progress", "date": "", "tags": ["notice"], "order": 40, "body": "Working on an official site with the game list (auto-embedded with the emulator), the method, unblocked and useful sites, an embedded chatroom, patch notes, an administration dashboard, onboarding, a link block checker, and more." },
-    { "id": "chat-beta", "version": "1.5.8", "title": "Chatroom beta — [GG] C-App", "date": "", "tags": ["new"], "order": 30, "body": "The chatroom is in beta and working well.\n\n**If errors occur:** open App Data and delete everything in the boxes **except** A1, B1, C1, D1, E1 — and in the messages tab, A1, B1, C1, D1. Then open the site again." },
-    { "id": "doc-notifier", "version": "", "title": "Doc edit notifier", "date": "", "tags": ["improvement"], "order": 20, "body": "Added a script that emails me when the document is edited, plus a Gmail label and filter that sorts those emails, so I can see the latest updates and know when you're active.\n\n[Open the script](https://script.google.com/d/1fYj07cTKtdhB6FHzufMBZrmNkSgUjk7CfNiY69it06PMFsLg2HfcOw2p/edit?usp=sharing) — make a copy, add Drive services, change the email and any settings you want." },
-    { "id": "emulator-v1", "version": "1.0", "title": "Emulator: definitely not an emulator", "date": "", "tags": ["new"], "order": 10, "body": "Launched the HTML emulator. Every game in the list now also has an emulated link." }
+    {
+      "id": "v2-0",
+      "version": "2.0",
+      "title": "Official site launch",
+      "date": "2026-09-22",
+      "tags": [
+        "new"
+      ],
+      "order": 60,
+      "pinned": true,
+      "body": "The official Green Grass site is live.\n\n- **Game library** with search, categories, favorites and one-click play\n- **Green Grass Emulator** — our own HTML runner. Open files, paste code, or load Drive links\n- **Live chat** with channels, built right into the site\n- **Link Checker** — test whether a site is reachable from your network\n- **Patch notes**, the Method guide, and a curated links page\n- **Admin dashboard** for managing everything\n- First-visit **onboarding** tour"
+    },
+    {
+      "id": "local-blocked",
+      "version": "",
+      "title": "Local HTML files blocked",
+      "date": "",
+      "tags": [
+        "notice"
+      ],
+      "order": 50,
+      "body": "As of recently, local HTML files have been blocked on some devices. We're working on a workaround.\n\nFor now, stick to the emulator — it still works."
+    },
+    {
+      "id": "site-wip",
+      "version": "",
+      "title": "Official site in progress",
+      "date": "",
+      "tags": [
+        "notice"
+      ],
+      "order": 40,
+      "body": "Working on an official site with the game list (auto-embedded with the emulator), the method, unblocked and useful sites, an embedded chatroom, patch notes, an administration dashboard, onboarding, a link block checker, and more."
+    },
+    {
+      "id": "chat-beta",
+      "version": "1.5.8",
+      "title": "Chatroom beta — [GG] C-App",
+      "date": "",
+      "tags": [
+        "new"
+      ],
+      "order": 30,
+      "body": "The chatroom is in beta and working well.\n\n**If errors occur:** open App Data and delete everything in the boxes **except** A1, B1, C1, D1, E1 — and in the messages tab, A1, B1, C1, D1. Then open the site again."
+    },
+    {
+      "id": "doc-notifier",
+      "version": "",
+      "title": "Doc edit notifier",
+      "date": "",
+      "tags": [
+        "improvement"
+      ],
+      "order": 20,
+      "body": "Added a script that emails me when the document is edited, plus a Gmail label and filter that sorts those emails, so I can see the latest updates and know when you're active.\n\n[Open the script](https://script.google.com/d/1fYj07cTKtdhB6FHzufMBZrmNkSgUjk7CfNiY69it06PMFsLg2HfcOw2p/edit?usp=sharing) — make a copy, add Drive services, change the email and any settings you want."
+    },
+    {
+      "id": "emulator-v1",
+      "version": "1.0",
+      "title": "Emulator: definitely not an emulator",
+      "date": "",
+      "tags": [
+        "new"
+      ],
+      "order": 10,
+      "body": "Launched the HTML emulator. Every game in the list now also has an emulated link."
+    }
   ]
 }

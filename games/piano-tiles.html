@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Tiles</title>
+    <style>
+        :root {
+            --bg-color: #121224;
+            --lane-border: #2a2a40;
+            --tile-color: #ffffff;
+            --active-tile-color: #00f2fe;
+            --active-tile-glow: #4facfe;
+            --text-color: #ffffff;
+            --accent-color: #ff007f;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #ui-container {
+            display: flex;
+            justify-content: space-between;
+            width: 360px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            font-size: 1.2rem;
+        }
+
+        .ui-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #score-display {
+            color: var(--active-tile-color);
+            text-shadow: 0 0 5px var(--active-tile-glow);
+        }
+
+        #high-score-display {
+            color: #ffb86c;
+        }
+
+        #game-container {
+            position: relative;
+            width: 360px;
+            height: 600px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 4px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+        }
+
+        #lanes {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .lane {
+            flex: 1;
+            height: 100%;
+            border-right: 1px dashed var(--lane-border);
+            position: relative;
+        }
+
+        .lane:last-child {
+            border-right: none;
+        }
+
+        #tiles-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        .tile {
+            position: absolute;
+            width: 25%; /* 1 lane width out of 4 */
+            height: 120px; /* 5 rows fit perfectly in 600px height */
+            background-color: var(--tile-color);
+            border: 2px solid var(--bg-color);
+            box-sizing: border-box;
+            border-radius: 4px;
+            transition: top 0.05s ease-out;
+        }
+
+        /* The very bottom active tile that needs to be hit */
+        .tile.active-target {
+            background: linear-gradient(180deg, var(--active-tile-glow), var(--active-tile-color));
+            box-shadow: 0 0 20px var(--active-tile-glow);
+            border: 2px solid #ffffff;
+            z-index: 10;
+        }
+
+        #key-labels {
+            display: flex;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 15;
+        }
+
+        .key-label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #888;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .key-label:last-child {
+            border-right: none;
+        }
+
+        .key-label.pressed {
+            background: rgba(0, 242, 254, 0.3);
+            color: #fff;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 26, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .overlay h1 {
+            font-size: 3rem;
+            margin: 0 0 20px 0;
+            letter-spacing: 2px;
+            color: var(--active-tile-color);
+            text-shadow: 0 0 15px var(--active-tile-glow);
+        }
+
+        .overlay p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin: 0 0 20px 0;
+            color: #ccc;
+        }
+
+        .highlight-text {
+            color: #ffb86c;
+            font-weight: bold;
+            font-size: 1.3rem;
+            margin: 10px 0;
+        }
+
+        .new-high-score-banner {
+            background: linear-gradient(45deg, #ff0055, #ff007f);
+            color: white;
+            padding: 8px 20px;
+            font-weight: bold;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px #ff007f;
+            animation: pulse 1s infinite alternate;
+            margin-bottom: 15px;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.08); }
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid var(--active-tile-color);
+            color: #fff;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 25px;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--active-tile-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 20px var(--active-tile-color);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="ui-box" id="timer-display">TIME: 30s</div>
+        <div class="ui-box" id="score-display">SCORE: 0</div>
+        <div class="ui-box" id="high-score-display">HI: 0</div>
+    </div>
+
+    <div id="game-container">
+        <div id="lanes">
+            <div class="lane"></div>
+            <div class="lane"></div>
+            <div class="lane"></div>
+            <div class="lane"></div>
+        </div>
+
+        <div id="tiles-container"></div>
+
+        <div id="key-labels">
+            <div class="key-label" id="key-r">R</div>
+            <div class="key-label" id="key-t">T</div>
+            <div class="key-label" id="key-y">Y</div>
+            <div class="key-label" id="key-u">U</div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="start-screen" class="overlay">
+            <h1>Piano Tiles</h1>
+            <p>Tap tiles using <strong>R, T, Y, U</strong> keys.<br>Notes are connected seamlessly—no gaps, no jumps over 2 lanes apart!</p>
+            <p>Score as much as you can in <strong>30 seconds</strong>!</p>
+            <button class="btn" id="start-btn">START GAME</button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameover-screen" class="overlay hidden">
+            <h1>Game Over</h1>
+            <div id="new-high-score-announcement" class="new-high-score-banner hidden">NEW HIGH SCORE!</div>
+            <p id="final-score" class="highlight-text">FINAL SCORE: 0</p>
+            <p id="best-score-text">Your Best: 0</p>
+            <button class="btn" id="restart-btn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const KEYS = ['r', 't', 'y', 'u'];
+        const ROW_HEIGHT = 120; // Each row height matches our 5-row viewport grid
+        const TOTAL_ROWS_VISIBLE = 5; 
+        
+        let score = 0;
+        let highScore = localStorage.getItem('piano_tiles_high_score') ? parseInt(localStorage.getItem('piano_tiles_high_score')) : 0;
+        let timeLeft = 30;
+        let isGameRunning = false;
+        let timerInterval = null;
+        
+        // Array keeping track of the lane index for each tile in the stack.
+        // Index 0 represents the lowest active tile (the one at the bottom).
+        let tileStack = []; 
+
+        const timerDisplay = document.getElementById('timer-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const tilesContainer = document.getElementById('tiles-container');
+        
+        const startScreen = document.getElementById('start-screen');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const finalScoreText = document.getElementById('final-score');
+        const bestScoreText = document.getElementById('best-score-text');
+        const newHighScoreAnnouncement = document.getElementById('new-high-score-announcement');
+        
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Show historical high score on startup
+        highScoreDisplay.textContent = `HI: ${highScore}`;
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        // Map inputs
+        window.addEventListener('keydown', (e) => {
+            if (!isGameRunning) return;
+            const key = e.key.toLowerCase();
+            if (KEYS.includes(key)) {
+                const keyLabel = document.getElementById(`key-${key}`);
+                if (keyLabel) keyLabel.classList.add('pressed');
+                handleInput(key);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (KEYS.includes(key)) {
+                const keyLabel = document.getElementById(`key-${key}`);
+                if (keyLabel) keyLabel.classList.remove('pressed');
+            }
+        });
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            tileStack = [];
+            tilesContainer.innerHTML = '';
+            
+            scoreDisplay.textContent = `SCORE: ${score}`;
+            timerDisplay.textContent = `TIME: ${timeLeft}s`;
+            
+            startScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+            newHighScoreAnnouncement.classList.add('hidden');
+            
+            // Generate initial pattern smoothly
+            generateInitialStack();
+            renderStack();
+            
+            isGameRunning = true;
+            
+            // Start 30 second timer
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `TIME: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function generateInitialStack() {
+            // First item random lane choice
+            let lastLane = Math.floor(Math.random() * 4);
+            tileStack.push(lastLane);
+
+            // Populate up to and beyond viewport visibility
+            for (let i = 1; i < TOTAL_ROWS_VISIBLE + 2; i++) {
+                lastLane = getNextAdjacentLane(lastLane);
+                tileStack.push(lastLane);
+            }
+        }
+
+        function getNextAdjacentLane(currentLane) {
+            let validLanes = [];
+            if (currentLane === 0) {
+                validLanes = [1];
+            } else if (currentLane === 3) {
+                validLanes = [2];
+            } else {
+                validLanes = [currentLane - 1, currentLane + 1];
+            }
+            // Return random selection from only legal adjacent options
+            return validLanes[Math.floor(Math.random() * validLanes.length)];
+        }
+
+        function renderStack() {
+            tilesContainer.innerHTML = '';
+            // Render visible rows on screen grid mapping backwards
+            // Row 0 is at the bottom target zone (Y = 480px, above the 40px labels)
+            for (let i = 0; i < TOTAL_ROWS_VISIBLE; i++) {
+                if (i >= tileStack.length) break;
+                
+                const laneIndex = tileStack[i];
+                const tileElement = document.createElement('div');
+                tileElement.classList.add('tile');
+                
+                // Bottom row is at 440px from container top (allowing 40px labels beneath)
+                // 600 total height - 40px labels - 120px tile height = 440px
+                const topPos = 440 - (i * ROW_HEIGHT);
+                
+                tileElement.style.left = `${laneIndex * 25}%`;
+                tileElement.style.top = `${topPos}px`;
+                
+                // Highlight the specific bottom note
+                if (i === 0) {
+                    tileElement.classList.add('active-target');
+                }
+                
+                tilesContainer.appendChild(tileElement);
+            }
+        }
+
+        function handleInput(pressedKey) {
+            const correctKey = KEYS[tileStack[0]];
+            
+            if (pressedKey === correctKey) {
+                // Remove solved node element row
+                tileStack.shift();
+                
+                // Append another strictly continuous adjacent tile onto top of stack queue
+                const lastLane = tileStack[tileStack.length - 1];
+                tileStack.push(getNextAdjacentLane(lastLane));
+                
+                score++;
+                scoreDisplay.textContent = `SCORE: ${score}`;
+                
+                // Re-render positions instantly
+                renderStack();
+            } else {
+                // Negative penalty for hitting the wrong key (does not crash the turn-based timer format)
+                if (score > 0) {
+                    score--;
+                    scoreDisplay.textContent = `SCORE: ${score}`;
+                }
+            }
+        }
+
+        function endGame() {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            
+            finalScoreText.textContent = `FINAL SCORE: ${score}`;
+            bestScoreText.textContent = `Your Best: ${highScore}`;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('piano_tiles_high_score', highScore);
+                highScoreDisplay.textContent = `HI: ${highScore}`;
+                newHighScoreAnnouncement.classList.remove('hidden');
+            }
+            
+            gameoverScreen.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

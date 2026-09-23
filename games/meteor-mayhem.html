@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteor Mayhem</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #03030c;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+        #score-val { color: #00ffcc; }
+        #level-val { color: #ff3366; }
+        #speed-val { color: #ffcc00; }
+        
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 3, 12, 0.85);
+            backdrop-filter: blur(8px);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            z-index: 20;
+        }
+        h1 {
+            font-size: 64px;
+            color: #ff3366;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+            animation: pulse 2s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); text-shadow: 0 0 20px rgba(255, 51, 102, 0.6); }
+            100% { transform: scale(1.03); text-shadow: 0 0 35px rgba(255, 51, 102, 0.9); }
+        }
+        .final-score {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #00ffcc;
+        }
+        button {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #00ffcc;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        button:hover {
+            background: #00ffcc;
+            color: #03030c;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.6);
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(1px);
+        }
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255,255,255,0.4);
+            font-size: 14px;
+            text-align: right;
+            pointer-events: none;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="ui-text">GAME: <span style="color: #ffcc00; font-style: italic;">METEOR MAYHEM</span></div>
+        <div class="ui-text">SCORE: <span id="score-val">0</span></div>
+        <div class="ui-text">HAZARD LEVEL: <span id="level-val">1</span></div>
+        <div class="ui-text">SPEED: <span id="speed-val">0</span> mph</div>
+    </div>
+
+    <div id="controls-hint">
+        STEER: Left / Right Arrows<br>
+        BOOSTER: Hold Up Arrow
+    </div>
+
+    <div id="game-over-screen">
+        <h1>Meteor Mayhem</h1>
+        <p style="font-size: 20px; margin-bottom: 10px; color: #aaa;">Your ship was obliterated!</p>
+        <div class="final-score">Final Score: <span id="final-score-val">0</span></div>
+        <button id="restart-btn">Launch Replacement Ship</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreVal = document.getElementById('score-val');
+        const levelVal = document.getElementById('level-val');
+        const speedVal = document.getElementById('speed-val');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreVal = document.getElementById('final-score-val');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Handle window resizing
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game state variables
+        let score = 0;
+        let hazardLevel = 1;
+        let gameOver = false;
+        let lastMeteorSpawnTime = 0;
+        let baseSpawnInterval = 1800; // ms between spawns initially
+
+        // Input monitoring
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            ArrowUp: false
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+                if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault(); // stop scrolling
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+
+        // Background Star System
+        const stars = [];
+        for (let i = 0; i < 150; i++) {
+            stars.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                size: Math.random() * 2,
+                brightness: Math.random()
+            });
+        }
+
+        // Object pools
+        let ship;
+        let meteors = [];
+        let particles = [];
+
+        class Ship {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.radius = 14; // actual circular physics hitbox size
+                this.angle = -Math.PI / 2; // point up initially
+                this.rotationSpeed = 0.065; // speed of nose turn
+                
+                // Flight physics vectors
+                this.vx = 0;
+                this.vy = 0;
+                
+                // Movement constants
+                this.cruiseAccel = 0.05; 
+                this.boostAccel = 0.22;
+                this.maxCruiseSpeed = 2.5;
+                this.maxBoostSpeed = 7.0;
+                this.driftFriction = 0.994; // very low space friction = sliding feel
+            }
+
+            update() {
+                // 1. Rotate ship nose based on user steering inputs
+                if (keys.ArrowLeft) this.angle -= this.rotationSpeed;
+                if (keys.ArrowRight) this.angle += this.rotationSpeed;
+
+                // 2. Continuous thrust calculation
+                // The engine is ALWAYS pushing forward gently, creating constant drift
+                let currentAccel = this.cruiseAccel;
+                let currentMaxSpeed = this.maxCruiseSpeed;
+
+                if (keys.ArrowUp) {
+                    currentAccel = this.boostAccel;
+                    currentMaxSpeed = this.maxBoostSpeed;
+
+                    // Spawn exhaust particle smoke behind the ship cockpit
+                    if (Math.random() < 0.6) {
+                        const exhaustAngle = this.angle + Math.PI + (Math.random() * 0.4 - 0.2);
+                        particles.push(new Particle(
+                            this.x - Math.cos(this.angle) * 15,
+                            this.y - Math.sin(this.angle) * 15,
+                            exhaustAngle,
+                            Math.random() * 3 + 2,
+                            '#ff6600',
+                            30
+                        ));
+                    }
+                }
+
+                // Inject acceleration vector along current nose pointing path
+                this.vx += Math.cos(this.angle) * currentAccel;
+                this.vy += Math.sin(this.angle) * currentAccel;
+
+                // Apply low space friction drift factor
+                this.vx *= this.driftFriction;
+                this.vy *= this.driftFriction;
+
+                // Enforce maximum speed limits safely
+                const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (currentSpeed > currentMaxSpeed) {
+                    this.vx = (this.vx / currentSpeed) * currentMaxSpeed;
+                    this.vy = (this.vy / currentSpeed) * currentMaxSpeed;
+                }
+
+                // Update physical position coordinates
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen Wrap handling logic
+                if (this.x < -20) this.x = canvas.width + 20;
+                if (this.x > canvas.width + 20) this.x = -20;
+                if (this.y < -20) this.y = canvas.height + 20;
+                if (this.y > canvas.height + 20) this.y = -20;
+
+                // Real-time speed UI update
+                speedVal.textContent = Math.round(currentSpeed * 25);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Neon glow styling
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = keys.ArrowUp ? '#ffea00' : '#00ffcc';
+
+                // Draw sleek triangular spaceship geometry shape
+                ctx.beginPath();
+                ctx.moveTo(18, 0);       // Ship Nose
+                ctx.lineTo(-12, -11);    // Left Wing back corner
+                ctx.lineTo(-7, 0);       // Engine core indentation
+                ctx.lineTo(-12, 11);     // Right Wing back corner
+                ctx.closePath();
+
+                ctx.strokeStyle = keys.ArrowUp ? '#fff' : '#00ffcc';
+                ctx.lineWidth = 2.5;
+                ctx.fillStyle = '#0a0d26';
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw visible micro booster fire plume if boosting
+                if (keys.ArrowUp) {
+                    ctx.beginPath();
+                    ctx.moveTo(-8, 0);
+                    ctx.lineTo(-22, Math.random() * 6 - 3);
+                    ctx.lineTo(-8, 4);
+                    ctx.fillStyle = '#ff3300';
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Meteor {
+            constructor() {
+                // Big scale parameters (2.5x increase setup)
+                this.radius = Math.random() * 20 + 25; // Visual sizing tracking radius (25 to 45 radius = 50-90px wide)
+                
+                // Determine random entry vector from outside the visible viewing window frame
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) { // Top
+                    this.x = Math.random() * canvas.width;
+                    this.y = -this.radius * 2;
+                } else if (side === 1) { // Right
+                    this.x = canvas.width + this.radius * 2;
+                    this.y = Math.random() * canvas.height;
+                } else if (side === 2) { // Bottom
+                    this.x = Math.random() * canvas.width;
+                    this.y = canvas.height + this.radius * 2;
+                } else { // Left
+                    this.x = -this.radius * 2;
+                    this.y = Math.random() * canvas.height;
+                }
+
+                // Determine hazard type categorization assignment
+                // 60% Deadly Red Hazards, 40% Target Breakable Blue Crystals
+                this.type = Math.random() < 0.6 ? 'DEADLY' : 'BREAKABLE';
+                this.color = this.type === 'DEADLY' ? '#ff3366' : '#00b3ff';
+
+                // Speed scale multipliers that scale dynamically as hazard levels expand
+                const baseSpeed = Math.random() * 1.5 + 1.0;
+                const speedModifier = 1 + (hazardLevel * 0.18);
+                
+                // Fly across towards opposite screen coordinates general heading calculations
+                const targetX = Math.random() * canvas.width;
+                const targetY = Math.random() * canvas.height;
+                const angleToTarget = Math.atan2(targetY - this.y, targetX - this.x);
+                
+                this.vx = Math.cos(angleToTarget) * baseSpeed * speedModifier;
+                this.vy = Math.sin(angleToTarget) * baseSpeed * speedModifier;
+
+                // Give the giant rock an aesthetic spinning speed rotation
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() * 0.02 - 0.01);
+
+                // Generate a jagged asteroid outline vertex map array
+                this.numSides = Math.floor(Math.random() * 4) + 7; // 7-10 jagged steps
+                this.vertices = [];
+                for (let i = 0; i < this.numSides; i++) {
+                    const offset = Math.random() * 0.35 + 0.8; // indentation variance coefficient
+                    this.vertices.push(offset);
+                }
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.rotationSpeed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                
+                ctx.beginPath();
+                for (let i = 0; i < this.numSides; i++) {
+                    const currentAngle = (i / this.numSides) * Math.PI * 2;
+                    const dynamicRadius = this.radius * this.vertices[i];
+                    const vx = Math.cos(currentAngle) * dynamicRadius;
+                    const vy = Math.sin(currentAngle) * dynamicRadius;
+                    
+                    if (i === 0) ctx.moveTo(vx, vy);
+                    else ctx.lineTo(vx, vy);
+                }
+                ctx.closePath();
+
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.fillStyle = '#060919';
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // Verify if out of boundaries completely after crossing window container fully
+            isOffscreen() {
+                const pad = this.radius * 3;
+                return (
+                    this.x < -pad || 
+                    this.x > canvas.width + pad || 
+                    this.y < -pad || 
+                    this.y > canvas.height + pad
+                );
+            }
+        }
+
+        class Particle {
+            constructor(x, y, angle, speed, color, life) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.color = color;
+                this.maxLife = life;
+                this.life = life;
+                this.size = Math.random() * 3 + 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, color, amount = 25) {
+            for (let i = 0; i < amount; i++) {
+                const randomAngle = Math.random() * Math.PI * 2;
+                const randomSpeed = Math.random() * 4 + 1;
+                particles.push(new Particle(x, y, randomAngle, randomSpeed, color, Math.random() * 25 + 20));
+            }
+        }
+
+        function triggerGameOver() {
+            gameOver = true;
+            createExplosion(ship.x, ship.y, '#ff3366', 50); // huge ship explosion trail ring
+            createExplosion(ship.x, ship.y, '#ffcc00', 30);
+            
+            setTimeout(() => {
+                finalScoreVal.textContent = score;
+                gameOverScreen.style.display = 'flex';
+            }, 800);
+        }
+
+        function spawnManager(timestamp) {
+            // Drop base interval gap values based on current score pacing speeds
+            // Interval drops faster every level tier milestone reached
+            const currentInterval = Math.max(450, baseSpawnInterval - (hazardLevel * 140));
+
+            if (timestamp - lastMeteorSpawnTime > currentInterval) {
+                // Don't spawn more than max limit at once to keep scaling clean
+                if (meteors.length < 24) {
+                    meteors.push(new Meteor());
+                }
+                lastMeteorSpawnTime = timestamp;
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            hazardLevel = 1;
+            gameOver = false;
+            meteors = [];
+            particles = [];
+            
+            scoreVal.textContent = score;
+            levelVal.textContent = hazardLevel;
+            gameOverScreen.style.display = 'none';
+            
+            ship = new Ship();
+            lastMeteorSpawnTime = performance.now();
+        }
+
+        function gameLoop(timestamp) {
+            // Clear entire viewing layout viewport every block framing loop step
+            ctx.fillStyle = '#03030c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Render static galaxy star backdrop coordinates 
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < stars.length; i++) {
+                const s = stars[i];
+                ctx.globalAlpha = s.brightness * (0.5 + Math.sin(timestamp * 0.002 + i) * 0.5); // subtle twinkling
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            }
+            ctx.globalAlpha = 1.0; // reset
+
+            // Spawn scheduling tracking
+            if (!gameOver) {
+                spawnManager(timestamp);
+            }
+
+            // Update & Render engine particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Update & Render floating meteors
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                const m = meteors[i];
+                m.update();
+                m.draw();
+
+                // Collision detection engine (Circle to Circle Distance verification math)
+                if (!gameOver) {
+                    const dx = m.x - ship.x;
+                    const dy = m.y - ship.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Critical threshold intersection check calculation boundary criteria
+                    if (distance < (m.radius + ship.radius)) {
+                        if (m.type === 'DEADLY') {
+                            triggerGameOver();
+                        } else {
+                            // Hit a breakable blue asteroid!
+                            createExplosion(m.x, m.y, '#00b3ff', 20); // neon blue ice splash rings
+                            meteors.splice(i, 1); // remove asteroid piece unit from array mapping
+                            
+                            // Adjust score trackers
+                            score += 100;
+                            scoreVal.textContent = score;
+
+                            // Scale Hazard Level thresholds aggressively every 200 points!
+                            const newLevel = Math.floor(score / 200) + 1;
+                            if (newLevel > hazardLevel) {
+                                hazardLevel = newLevel;
+                                levelVal.textContent = hazardLevel;
+                                
+                                // Flash display alert cosmetic effect on UI screen counters
+                                levelVal.style.animation = 'none';
+                                setTimeout(() => { levelVal.style.animation = 'pulse 0.4s ease 3'; }, 10);
+                            }
+                            continue;
+                        }
+                    }
+                }
+
+                // Clean out objects that completely stray pass off-screen borders
+                if (m.isOffscreen()) {
+                    meteors.splice(i, 1);
+                }
+            }
+
+            // Update & Render user controlled spaceship element context
+            if (!gameOver) {
+                ship.update();
+                ship.draw();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize core triggers
+        restartBtn.addEventListener('click', initGame);
+        initGame();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

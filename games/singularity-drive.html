@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Singularity Drive</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b0b16;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vw;
+            max-width: 800px;
+            max-height: 800px;
+            margin: auto;
+            aspect-ratio: 1 / 1;
+        }
+        @media (min-aspect-ratio: 1/1) {
+            #gameContainer {
+                height: 100vh;
+                width: 100vh;
+            }
+        }
+        canvas {
+            display: block;
+            background: radial-gradient(circle, #161630 0%, #080811 100%);
+            width: 100%;
+            height: 100%;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            pointer-events: auto;
+        }
+        .score-box {
+            background: rgba(255, 255, 255, 0.07);
+            padding: 10px 20px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-weight: bold;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+        #screenOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 15, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+            transition: opacity 0.3s ease;
+        }
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(79, 172, 254, 0.4);
+        }
+        p.instructions {
+            color: #a0a0c0;
+            font-size: 1rem;
+            max-width: 400px;
+            text-align: center;
+            line-height: 1.6;
+            margin: 0 0 30px 0;
+        }
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+            color: white;
+            padding: 12px 35px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 242, 254, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 242, 254, 0.5);
+        }
+        .btn:active {
+            transform: translateY(1px);
+        }
+        #gameOverTitle {
+            background: linear-gradient(45deg, #ff416c, #ff4b2b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="800"></canvas>
+    <div class="ui-layer">
+        <div class="hud">
+            <div class="score-box">SCORE: <span id="scoreVal">0</span></div>
+            <div class="score-box" style="border-color: rgba(0,242,254,0.3)">RADIUS ACTIVE</div>
+        </div>
+        <div></div>
+    </div>
+    
+    <div id="screenOverlay">
+        <h1 id="menuTitle">Singularity Drive</h1>
+        <h1 id="gameOverTitle">Drive Defeated</h1>
+        <p class="instructions" id="menuText">
+            Control your Gravity Core using <strong>WASD</strong>.<br><br>
+            Hold <strong>SPACEBAR</strong> to dynamically lock onto nearby objects into a fixed orbit. Releasing throws them at high tangential speed.<br><br>
+            Avoid collisions at all costs. Overlapping items trigger catastrophic failure.
+        </p>
+        <button class="btn" id="startBtn">Initiate Core</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreVal = document.getElementById('scoreVal');
+const screenOverlay = document.getElementById('screenOverlay');
+const menuTitle = document.getElementById('menuTitle');
+const gameOverTitle = document.getElementById('gameOverTitle');
+const menuText = document.getElementById('menuText');
+const startBtn = document.getElementById('startBtn');
+
+// Game constants
+const PLAYER_SPEED = 5;
+const PLAYER_RADIUS = 20;
+const OBJECT_RADIUS = 28; // ~3x bigger base size
+const ATTRACTION_RADIUS = 160; 
+const ORBIT_SPEED = 0.07; // Moderately faster orbit speed
+const BASE_SPAWN_INTERVAL = 900; // High-density baseline
+const MIN_SPAWN_INTERVAL = 350;
+
+// Game State Variables
+let player = { x: 400, y: 400 };
+let keys = { w: false, a: false, s: false, d: false, space: false };
+let lastSpaceState = false;
+let objects = [];
+let score = 0;
+let gameOver = false;
+let gameStarted = false;
+let spawnTimer = 0;
+let currentSpawnInterval = BASE_SPAWN_INTERVAL;
+let lastTime = 0;
+
+// Unified Global Event Listeners (Bound exactly once to prevent restart stacking)
+window.addEventListener('keydown', (e) => {
+    handleKeyChange(e.key, true);
+});
+
+window.addEventListener('keyup', (e) => {
+    handleKeyChange(e.key, false);
+});
+
+function handleKeyChange(keyStr, isDown) {
+    const k = keyStr.toLowerCase();
+    if (k === 'w' || keyStr === 'ArrowUp') keys.w = isDown;
+    if (k === 'a' || keyStr === 'ArrowLeft') keys.a = isDown;
+    if (k === 's' || keyStr === 'ArrowDown') keys.s = isDown;
+    if (k === 'd' || keyStr === 'ArrowRight') keys.d = isDown;
+    
+    if (keyStr === ' ') {
+        keys.space = isDown;
+        if (!gameStarted || gameOver) return;
+        
+        // Falling edge / space key release action
+        if (!isDown && lastSpaceState) {
+            releaseOrbitingObjects();
+        }
+        // Rising edge / space key down press action
+        if (isDown && !lastSpaceState) {
+            captureNearbyObjects();
+        }
+        lastSpaceState = isDown;
+    }
+}
+
+startBtn.addEventListener('click', () => {
+    if (!gameStarted || gameOver) {
+        resetGame();
+    }
+});
+
+function resetGame() {
+    player = { x: 400, y: 400 };
+    objects = [];
+    score = 0;
+    scoreVal.innerText = score;
+    gameOver = false;
+    gameStarted = true;
+    currentSpawnInterval = BASE_SPAWN_INTERVAL;
+    spawnTimer = 0;
+    keys.space = false;
+    lastSpaceState = false;
+    
+    screenOverlay.style.opacity = '0';
+    setTimeout(() => { screenOverlay.style.display = 'none'; }, 300);
+    
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function triggerGameOver() {
+    gameOver = true;
+    screenOverlay.style.display = 'flex';
+    setTimeout(() => { screenOverlay.style.opacity = '1'; }, 10);
+    menuTitle.style.display = 'none';
+    gameOverTitle.style.display = 'block';
+    menuText.innerHTML = `Critical intersection detected.<br>Your containment grid collapsed.<br><br><strong>Final Score: ${score}</strong>`;
+    startBtn.innerText = 'Reboot Drive';
+}
+
+function spawnObject() {
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    const margin = 50;
+    
+    if (side === 0) { // Top
+        x = Math.random() * canvas.width;
+        y = -margin;
+    } else if (side === 1) { // Right
+        x = canvas.width + margin;
+        y = Math.random() * canvas.height;
+    } else if (side === 2) { // Bottom
+        x = Math.random() * canvas.width;
+        y = canvas.height + margin;
+    } else { // Left
+        x = -margin;
+        y = Math.random() * canvas.height;
+    }
+    
+    // Direct trajectory toward the exact center frame layout
+    const targetX = canvas.width / 2;
+    const targetY = canvas.height / 2;
+    const angle = Math.atan2(targetY - y, targetX - x);
+    const speed = 1.5 + Math.random() * 1.5;
+    
+    objects.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: OBJECT_RADIUS,
+        color: `hsl(${Math.random() * 60 + 260}, 85%, 65%)`, // Cosmic neon hues
+        isOrbiting: false,
+        orbitAngle: 0,
+        orbitRadius: 0,
+        scored: false
+    });
+}
+
+function captureNearbyObjects() {
+    objects.forEach(obj => {
+        const dx = obj.x - player.x;
+        const dy = obj.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= ATTRACTION_RADIUS) {
+            obj.isOrbiting = true;
+            obj.orbitRadius = dist;
+            obj.orbitAngle = Math.atan2(dy, dx);
+        }
+    });
+}
+
+function releaseOrbitingObjects() {
+    objects.forEach(obj => {
+        if (obj.isOrbiting) {
+            obj.isOrbiting = false;
+            // Calculate precise tangential vector direction based on faster rotation speed
+            const tangentAngle = obj.orbitAngle + Math.PI / 2;
+            const tangentialSpeed = obj.orbitRadius * ORBIT_SPEED;
+            
+            obj.vx = Math.cos(tangentAngle) * tangentialSpeed;
+            obj.vy = Math.sin(tangentAngle) * tangentialSpeed;
+        }
+    });
+}
+
+function updateGame(dt) {
+    // Player movements via WASD
+    if (keys.w) player.y -= PLAYER_SPEED;
+    if (keys.s) player.y += PLAYER_SPEED;
+    if (keys.a) player.x -= PLAYER_SPEED;
+    if (keys.d) player.x += PLAYER_SPEED;
+    
+    // Contain player within boundaries
+    player.x = Math.max(PLAYER_RADIUS, Math.min(canvas.width - PLAYER_RADIUS, player.x));
+    player.y = Math.max(PLAYER_RADIUS, Math.min(canvas.height - PLAYER_RADIUS, player.y));
+    
+    // Dynamic progressive difficulty interval adjustments
+    spawnTimer += dt;
+    if (spawnTimer >= currentSpawnInterval) {
+        spawnObject();
+        spawnTimer = 0;
+        currentSpawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL - score * 15);
+    }
+    
+    // Cycle and evaluate floating objects
+    for (let i = objects.length - 1; i >= 0; i--) {
+        let obj = objects[i];
+        
+        if (obj.isOrbiting) {
+            // Moderately faster angular progression loops
+            obj.orbitAngle += ORBIT_SPEED;
+            obj.x = player.x + Math.cos(obj.orbitAngle) * obj.orbitRadius;
+            obj.y = player.y + Math.sin(obj.orbitAngle) * obj.orbitRadius;
+        } else {
+            // Traditional linear path calculations
+            obj.x += obj.vx;
+            obj.y += obj.vy;
+            
+            // Check if cleanly slung away out of viewport to award scores
+            const outMargin = 150;
+            if (obj.x < -outMargin || obj.x > canvas.width + outMargin || 
+                obj.y < -outMargin || obj.y > canvas.height + outMargin) {
+                if (!obj.scored && (Math.abs(obj.vx) > 3 || Math.abs(obj.vy) > 3)) {
+                    score++;
+                    scoreVal.innerText = score;
+                }
+                objects.splice(i, 1);
+                continue;
+            }
+        }
+        
+        // Core impact evaluation
+        const pDx = obj.x - player.x;
+        const pDy = obj.y - player.y;
+        const pDist = Math.sqrt(pDx * pDx + pDy * pDy);
+        if (pDist < obj.radius + PLAYER_RADIUS) {
+            triggerGameOver();
+            return;
+        }
+        
+        // Multi-object cross impact validation
+        for (let j = i - 1; j >= 0; j--) {
+            let other = objects[j];
+            const oDx = obj.x - other.x;
+            const oDy = obj.y - other.y;
+            const oDist = Math.sqrt(oDx * oDx + oDy * oDy);
+            
+            if (oDist < obj.radius + other.radius) {
+                triggerGameOver();
+                return;
+            }
+        }
+    }
+}
+
+function drawGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Render Attraction Ring boundary field
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, ATTRACTION_RADIUS, 0, Math.PI * 2);
+    ctx.strokeStyle = keys.space ? 'rgba(0, 242, 254, 0.25)' : 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = keys.space ? 2 : 1;
+    if (keys.space) ctx.setLineDash([6, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw lock tether lines
+    if (keys.space) {
+        objects.forEach(obj => {
+            if (obj.isOrbiting) {
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(obj.x, obj.y);
+                ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        });
+    }
+    
+    // Render Cosmic Debris
+    objects.forEach(obj => {
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.fillStyle = obj.color;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = obj.color;
+        ctx.fill();
+        
+        // Add core depth accent shading
+        ctx.beginPath();
+        ctx.arc(obj.x - obj.radius*0.2, obj.y - obj.radius*0.2, obj.radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.shadowBlur = 0;
+        ctx.fill();
+    });
+    
+    // Reset shadow values for player core
+    ctx.shadowBlur = 0;
+    
+    // Render Singularity Vessel Core
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = '#00f2fe';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00f2fe';
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, PLAYER_RADIUS * 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = '#05050f';
+    ctx.shadowBlur = 0;
+    ctx.fill();
+}
+
+function gameLoop(timestamp) {
+    if (!gameStarted || gameOver) return;
+    
+    let dt = timestamp - lastTime;
+    if (dt > 100) dt = 16.66; // Filter background browser tab lag spikes
+    lastTime = timestamp;
+    
+    updateGame(dt);
+    drawGame();
+    
+    requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>

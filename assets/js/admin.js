@@ -293,7 +293,7 @@ function games(view) {
     tbody.innerHTML = rows.length ? rows.map((g, i) => `<tr data-id="${esc(g.id)}">
       <td class="order-cell"><button class="icon-btn sm" data-up ${i === 0 || q ? 'disabled' : ''}>${icon('chevronDown', 'flip')}</button><button class="icon-btn sm" data-down ${i === rows.length - 1 || q ? 'disabled' : ''}>${icon('chevronDown')}</button></td>
       <td><div class="cell-game">${gameLogo(g, 'mini-logo')}<div><strong>${esc(g.title)}</strong><span class="muted small">${esc(g.category || '—')}</span></div></div></td>
-      <td><span class="badge">${{ html: 'Uploaded HTML', drive: 'Google Drive', url: 'Web URL' }[g.source] || g.source}</span>${g.fileSize ? `<span class="muted small"> ${fmtBytes(g.fileSize)}</span>` : ''}</td>
+      <td><span class="badge">${{ html: 'Uploaded HTML', file: 'Site file', drive: 'Google Drive', url: 'Web URL' }[g.source] || g.source}</span>${g.fileSize ? `<span class="muted small"> ${fmtBytes(g.fileSize)}</span>` : ''}</td>
       <td>${(g.plays || 0).toLocaleString()}</td>
       <td><div class="row gap-sm">${g.hidden ? '<span class="badge badge-muted">Hidden</span>' : '<span class="badge badge-accent">Live</span>'}${g.featured ? '<span class="badge badge-warn">Featured</span>' : ''}</div></td>
       <td class="row-actions"><button class="icon-btn sm" data-test title="Test">${icon('play')}</button><button class="icon-btn sm" data-edit title="Edit">${icon('edit')}</button><button class="icon-btn sm" data-del title="Delete">${icon('trash')}</button></td>
@@ -389,9 +389,14 @@ function gameEditor(g = null) {
         <div class="field"><span>Game source</span>
           <div class="seg" data-src>
             <button data-v="html">${icon('upload')}Upload HTML</button>
-            <button data-v="drive">${icon('cloud')}Google Drive</button>
+            <button data-v="file">${icon('folder')}Site file</button>
+            <button data-v="drive">${icon('cloud')}Drive</button>
             <button data-v="url">${icon('globe')}Web URL</button>
           </div>
+        </div>
+        <div data-pane="file">
+          <label class="field"><span>File path in the repo</span><input class="input" data-f="file" value="${esc(d.file || '')}" placeholder="games/my-game.html"/></label>
+          <p class="muted small">Put the .html file in the repo's <code>games/</code> folder and push. Loads straight from the site — no database or Drive needed.</p>
         </div>
         <div data-pane="html">
           <label class="drop small-drop"><input type="file" accept=".html,.htm,text/html" hidden data-html/>${icon('upload')}<strong data-html-label>${g?.source === 'html' && g.fileSize ? `Current file: ${fmtBytes(g.fileSize)} — drop a new one to replace` : 'Drop the game’s .html file'}</strong><span class="muted small">Single-file HTML games work best. Stored in the database and served through the emulator.</span></label>
@@ -486,6 +491,7 @@ function gameEditor(g = null) {
       description: f('description').value.trim(),
       controls: f('controls').value.trim(),
       driveId: extractDriveId(f('driveId').value) || '',
+      file: f('file').value.trim(),
       url: f('url').value.trim(),
       featured: f('featured').checked,
       hidden: f('hidden').checked,
@@ -496,6 +502,7 @@ function gameEditor(g = null) {
     const data = collect();
     if (!data.title) { toast('Give the game a title.', 'warning'); return false; }
     if (data.source === 'drive' && !data.driveId) { toast('Enter a valid Drive link or file ID.', 'warning'); return false; }
+    if (data.source === 'file' && !/^[\w./-]+\.html?$/i.test(data.file)) { toast('Enter a path like games/my-game.html', 'warning'); return false; }
     if (data.source === 'url' && !/^https?:\/\//i.test(normalizeUrl(data.url))) { toast('Enter a valid URL.', 'warning'); return false; }
     if (data.source === 'html' && !pendingHtml && !(g?.source === 'html' && g.fileSize)) { toast('Upload the game’s HTML file.', 'warning'); return false; }
     if (data.logo && data.logo.length > 700000) { toast('That logo is too large. Try a smaller image.', 'warning'); return false; }
@@ -504,7 +511,7 @@ function gameEditor(g = null) {
     if (!id) { id = slugify(data.title); let n = 2; while (S.games.some((x) => x.id === id)) id = `${slugify(data.title)}-${n++}`; }
     const doc = {
       title: data.title, category: data.category, tags: data.tags, description: data.description, controls: data.controls,
-      source: data.source, driveId: data.source === 'drive' ? data.driveId : '', url: data.source === 'url' ? normalizeUrl(data.url) : '',
+      source: data.source, file: data.source === 'file' ? data.file.replace(/^\.?\//, '') : '', driveId: data.source === 'drive' ? data.driveId : '', url: data.source === 'url' ? normalizeUrl(data.url) : '',
       logo: data.logo || '', featured: data.featured, hidden: data.hidden,
       order: g?.order ?? (Math.max(0, ...S.games.map((x) => x.order || 0)) + 1),
       plays: g?.plays || 0,
@@ -536,6 +543,11 @@ async function testGame(g, html = null) {
       if (!src && g.source === 'html') {
         const snap = await fs.getDocs(fs.query(fs.collection(db, 'gameFiles', g.id, 'chunks'), fs.orderBy('i')));
         src = snap.docs.map((x) => x.data().d).join('');
+      }
+      if (!src && g.source === 'file') {
+        const r = await fetch(g.file, { cache: 'no-cache' });
+        if (!r.ok) throw new Error(`${g.file} wasn't found on the site. Did you push it to the games/ folder?`);
+        src = await r.text();
       }
       if (!src && g.source === 'drive') src = (await fetchDriveHtml(g.driveId, S.settings)).html;
       runner = mountRunner(stage, { html: src, title: g.title, storageKey: 'admin-test' });
