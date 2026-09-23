@@ -1,0 +1,10 @@
+# Cache rules for Cloudflare Pages / Netlify mirrors.
+# Always revalidate code so updates show up immediately.
+/assets/js/*
+  Cache-Control: no-cache
+/assets/css/*
+  Cache-Control: no-cache
+/*.html
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
