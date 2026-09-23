@@ -20,9 +20,9 @@ It's a static site with no build step. It runs on **GitHub Pages**, and **Fireba
 | **Link Checker** | Tests from the visitor's network whether a site is reachable or looks blocked |
 | **Onboarding** | First-visit tour with accent and theme picker |
 | **Extras** | Command palette (`/` or `Ctrl K`), dark/light themes, 5 accent colors, announcement banner, report-a-problem form, mobile layout |
-| **Admin dashboard** | `/admin.html`. Overview and health checks, games (upload HTML plus a logo, reorder, feature/hide, test play), links, patch notes, chat moderation, reports inbox, site settings, backup and restore |
+| **Admin dashboard** | `/admin.html`. Admin codes (owner), overview and health checks, games (upload HTML plus a logo, reorder, feature/hide, test play), links, patch notes, chat moderation, reports inbox, site settings, backup and restore |
 
-Admin access is limited to **two whitelisted Google accounts**. The Firestore security rules enforce this on the server, so it can't be bypassed from the browser.
+Admin access: **one owner account** (set by email) plus anyone the owner gives an **admin code**. The owner generates codes in the dashboard, each code works for one person, and deleting a code removes that person's access instantly. The Firestore security rules enforce all of this on the server, so it can't be bypassed from the browser.
 
 ---
 
@@ -38,7 +38,7 @@ Admin access is limited to **two whitelisted Google accounts**. The Firestore se
    git push -u origin main
    ```
 2. **Turn on Pages.** Repo → *Settings → Pages → Source: **GitHub Actions***. The included workflow deploys on every push to `main`. Your site will be at `https://<you>.github.io/green-grass/`.
-3. **Set up Firebase and your admin emails.** Follow **[SETUP.md](SETUP.md)** (about 10 minutes).
+3. **Set up Firebase and your owner email.** Follow **[SETUP.md](SETUP.md)** (about 10 minutes).
 
 The site works right away in **static mode**: it reads `data/seed.json`, and games, links, patch notes and the emulator all work. Chat and the admin dashboard turn on once Firebase is configured.
 
@@ -48,7 +48,8 @@ The site works right away in **static mode**: it reads `data/seed.json`, and gam
 
 | What | Where |
 |---|---|
-| Admin emails | `assets/js/config.js` → `ADMIN_EMAILS` **and** `firestore.rules` → `isAdmin()` |
+| Owner email | `assets/js/config.js` → `OWNER_EMAIL` **and** `firestore.rules` → `isOwner()` |
+| Other admins | Admin dashboard → **Admin codes** (owner only) |
 | Firebase keys | `assets/js/config.js` → `firebase` |
 | Games, logos, links, patch notes, Method text, banner, chat channels | `/admin.html` |
 | Starter data (static mode / first import) | `data/seed.json` |
@@ -73,10 +74,11 @@ assets/js/
   linkcheck.js        link block checker
   onboarding.js       welcome tour
   admin.js            dashboard
+  access.js           owner + admin-code checks
   data.js, fb.js, ui.js
 data/seed.json        starter content from the Green Grass doc
 apps-script/          Green Grass Emulator backend for Google Drive
-firestore.rules       database security rules (admin whitelist lives here)
+firestore.rules       database security rules (owner email + admin codes)
 .github/workflows/    GitHub Pages deploy
 ```
 

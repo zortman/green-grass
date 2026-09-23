@@ -95,3 +95,10 @@ label.btn { cursor: pointer; }
   .chan-edit { grid-template-columns: 14px 1fr 28px; }
   .chan-edit [data-k="topic"] { grid-column: 2; }
 }
+
+/* admin codes */
+.code-chip { font: 600 13px var(--mono); letter-spacing: .04em; padding: 4px 8px; border-radius: 7px; background: rgba(var(--accent-rgb), .1); color: var(--accent); white-space: nowrap; }
+.code-label { width: 260px; }
+.code-form { width: 100%; }
+.code-input { height: 52px; text-align: center; font: 600 20px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 860px) { .code-label { width: 150px; } }

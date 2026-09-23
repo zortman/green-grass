@@ -26,15 +26,14 @@ The site is now live in static mode.
 
 ---
 
-## 3. Set your 2 admin emails (two places)
+## 3. Set the owner email (two places)
+
+The owner is the one account that can create and delete **admin codes**. Use a personal Gmail; school accounts are usually blocked from signing in to outside sites.
 
 **a) `assets/js/config.js`**
 
 ```js
-ADMIN_EMAILS: [
-  'you@gmail.com',
-  'your-co-admin@gmail.com',
-],
+OWNER_EMAIL: 'you@gmail.com',
 firebase: {
   apiKey: 'AIza…',
   authDomain: 'your-project.firebaseapp.com',
@@ -45,24 +44,27 @@ firebase: {
 },
 ```
 
-**b) `firestore.rules`**, inside `isAdmin()`:
+Paste only the values from Firebase into the `firebase: { … }` block. Don't paste Firebase's `const firebaseConfig = { … };` line itself, or the site won't load.
+
+**b) `firestore.rules`**, inside `isOwner()`:
 
 ```
-&& request.auth.token.get('email', '').lower() in [
-  'you@gmail.com',
-  'your-co-admin@gmail.com'
-];
+&& request.auth.token.get('email', '').lower() == 'you@gmail.com';
 ```
 
-Then in the Firebase console → **Firestore Database → Rules**, paste the whole contents of `firestore.rules` and click **Publish**.
+Then in the Firebase console → **Firestore Database → Rules**, paste the whole contents of `firestore.rules` and click **Publish**. Do this again every time `firestore.rules` changes.
 
-> The rules are what actually protect your data. `config.js` only decides what the page shows. Someone could edit `config.js` in their own browser, but they still couldn't write anything without matching the rules.
+> The rules are what actually protect your data. `config.js` only decides what the page shows.
 
 > The Firebase `apiKey` is safe to commit. It only identifies your project; the rules control access.
 
-Commit and push. After the deploy finishes, open `https://yourname.github.io/green-grass/admin.html` and sign in with one of your admin accounts.
+### Giving other people admin access (admin codes)
 
----
+1. Sign in to `/admin.html` as the owner → **Admin codes** → type an optional label (e.g. "For Ethan") → **Generate code**. The code is copied to your clipboard.
+2. Send the code to that person. They open `/admin.html`, sign in (personal Google account, or **Continue without Google**), and enter the code.
+3. The list shows who is using each code. Click **Revoke** to remove their access instantly.
+
+Each code works for one person only. "Continue without Google" requires **Authentication → Sign-in method → Anonymous** to be enabled. Guest admin access lasts only on that browser, so if they clear their browser data, give them a new code.
 
 ## 4. First run in the dashboard
 
@@ -118,8 +120,10 @@ It works as soon as Firebase is set up. Channels (`general`, `games`, `help`) ar
 | Problem | Fix |
 |---|---|
 | `auth/unauthorized-domain` when signing in | Add your `*.github.io` domain in Firebase → Authentication → Settings → Authorized domains |
-| "Access denied" on admin | The signed-in email isn't in `ADMIN_EMAILS` (check for typos and use lowercase) |
-| Health check: "Write denied" | Your emails aren't in `firestore.rules`, or you didn't click **Publish** |
+| "Enter admin code" when you're the owner | The signed-in email doesn't match `OWNER_EMAIL` (check for typos, use lowercase) |
+| "Access blocked: Your institution's admin needs to review…" | That's a school account. Sign in with a personal Google account instead |
+| "Invalid, revoked, or already-used code" | Each code works once. Generate a new one |
+| Health check: "Write denied" | Your owner email isn't in `firestore.rules`, or you didn't click **Publish** |
 | Drive game: "No Drive backend configured" | Do step 5 |
 | Drive game: "not shared as Anyone with the link" | Drive → Share → General access → *Anyone with the link* |
 | Chat: "Message not sent" | Sending too fast, banned, or the channel is locked |

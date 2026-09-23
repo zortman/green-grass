@@ -10,17 +10,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // -----------------------------------------------------------------
-    //  ADMIN WHITELIST — edit these two emails (lowercase).
-    //  Must match ADMIN_EMAILS in assets/js/config.js.
+    //  OWNER — the only account that manages admin codes (lowercase).
+    //  Must match OWNER_EMAIL in assets/js/config.js.
     // -----------------------------------------------------------------
-    function isAdmin() {
+    function isOwner() {
       return request.auth != null
         && request.auth.token.get('email_verified', false) == true
-        && request.auth.token.get('email', '').lower() in [
-          'zortmanam3005@aguafria.org',
-          'lopezea3023@aguafria.org'
-        ];
+        && request.auth.token.get('email', '').lower() == 'zortmanaidan@gmail.com';
     }
+
+    // Code admins: admins/{uid} points at a code that still exists and is
+    // bound to them. Deleting the code revokes access instantly.
+    function isCodeAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/adminCodes/$(get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.code))
+        && get(/databases/$(database)/documents/adminCodes/$(get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.code)).data.redeemedBy == request.auth.uid;
+    }
+
+    function isAdmin() { return isOwner() || isCodeAdmin(); }
 
     function signedIn() { return request.auth != null; }
     function isBanned() {
@@ -114,6 +122,38 @@ service cloud.firestore {
         || (request.resource.data.lastPost == request.time
             && (!('lastPost' in resource.data) || request.time > resource.data.lastPost + duration.value(2, 's')))
       );
+    }
+
+    // ---------------- Admin codes ----------------
+    match /adminCodes/{code} {
+      allow read: if isOwner() || (request.auth != null && resource.data.redeemedBy == request.auth.uid);
+      allow create: if isOwner()
+        && code.matches('^GG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+        && request.resource.data.redeemedBy == null;
+      allow delete: if isOwner();
+      // Redeem: an unused code can be claimed once, in the same batch that
+      // creates admins/{uid} pointing at it.
+      allow update: if isOwner() || (request.auth != null
+        && resource.data.redeemedBy == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'redeemedName', 'redeemedEmail', 'redeemedAt'])
+        && request.resource.data.redeemedBy == request.auth.uid
+        && request.resource.data.redeemedAt == request.time
+        && str(request.resource.data.redeemedName, 0, 64)
+        && str(request.resource.data.redeemedEmail, 0, 200)
+        && getAfter(/databases/$(database)/documents/admins/$(request.auth.uid)).data.code == code);
+    }
+
+    match /admins/{uid} {
+      allow read: if isOwner() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['code', 'name', 'email', 'at'])
+        && request.resource.data.code is string
+        && request.resource.data.at == request.time
+        && str(request.resource.data.name, 0, 64)
+        && str(request.resource.data.email, 0, 200)
+        && get(/databases/$(database)/documents/adminCodes/$(request.resource.data.code)).data.redeemedBy == null
+        && getAfter(/databases/$(database)/documents/adminCodes/$(request.resource.data.code)).data.redeemedBy == request.auth.uid;
+      allow delete: if isOwner() || (request.auth != null && request.auth.uid == uid);
     }
 
     match /bans/{uid} {

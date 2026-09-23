@@ -10,16 +10,12 @@ export const CONFIG = {
   tagline: 'Games, tools and a community — all in one place.',
 
   /* ---------------------------------------------------------------
-     ADMIN WHITELIST
-     Exactly these Google accounts can open the admin dashboard.
-     IMPORTANT: also put the same emails in firestore.rules
-     (the rules are what actually enforce it on the server).
-     Use lowercase.
+     OWNER
+     The only account that can create and delete admin codes.
+     Other admins get access by redeeming a code (Admin -> Admin codes).
+     IMPORTANT: must match isOwner() in firestore.rules. Lowercase.
      --------------------------------------------------------------- */
-  ADMIN_EMAILS: [
-    'zortmanam3005@aguafria.org',
-    'lopezea3023@aguafria.org',
-  ],
+  OWNER_EMAIL: 'zortmanaidan@gmail.com',
 
   /* ---------------------------------------------------------------
      FIREBASE
@@ -63,5 +59,5 @@ export const CONFIG = {
 export const isFirebaseConfigured = () =>
   !!(CONFIG.firebase.apiKey && CONFIG.firebase.projectId);
 
-export const isAdminEmail = (email) =>
-  !!email && CONFIG.ADMIN_EMAILS.map((e) => e.toLowerCase().trim()).includes(String(email).toLowerCase().trim());
+export const isOwnerEmail = (email) =>
+  !!email && String(email).toLowerCase().trim() === CONFIG.OWNER_EMAIL.toLowerCase().trim();

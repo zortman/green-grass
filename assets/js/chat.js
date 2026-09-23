@@ -4,7 +4,7 @@
    chatUsers/{uid}                { name, lastPost }        (rate limit)
    bans/{uid}                     { name, reason, at }      (admin writes) */
 import { getFB, signInGoogle, signInGuest, signOut, onUser } from './fb.js';
-import { isAdminEmail } from './config.js';
+import { adminStatus } from './access.js';
 import { $, $$, esc, icon, monogram, timeAgo, toast, modal, confirmDialog, store } from './ui.js';
 
 const MAX_LEN = 500;
@@ -124,13 +124,23 @@ export async function mountChat(root, site) {
       if (!myName) { const ok = await rename(); if (!ok) return; }
       lastSend = Date.now();
       ta.value = ''; grow();
-      try {
+      const post = () => {
         const batch = fs.writeBatch(db);
         batch.set(fs.doc(db, 'chatUsers', user.uid), { name: myName, lastPost: fs.serverTimestamp() }, { merge: true });
         batch.set(fs.doc(fs.collection(db, 'channels', current, 'messages')), {
           uid: user.uid, name: myName, text: text.slice(0, MAX_LEN), admin, createdAt: fs.serverTimestamp(),
         });
-        await batch.commit();
+        return batch.commit();
+      };
+      try {
+        try { await post(); } catch (err) {
+          // Admin status may have changed (code revoked/granted) — recheck and retry once.
+          const was = admin;
+          admin = (await adminStatus(fb, user)).admin;
+          if (was === admin) throw err;
+          await new Promise((r) => setTimeout(r, COOLDOWN));
+          await post();
+        }
       } catch (err) {
         ta.value = text; grow();
         toast(/permission/i.test(err.message) ? 'Message not sent — you may be sending too fast, banned, or the channel is locked.' : err.message, 'error', 5000);
@@ -242,7 +252,7 @@ export async function mountChat(root, site) {
 
   unsubAuth = await onUser(async (u) => {
     user = u;
-    admin = !!(u && !u.isAnonymous && u.emailVerified && isAdminEmail(u.email));
+    admin = u ? (await adminStatus(fb, u)).admin : false;
     banned = false;
     myName = '';
     if (u) {

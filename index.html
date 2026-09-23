@@ -32,7 +32,7 @@
     // If the app fails to boot, show why instead of a blank page.
     (function () {
       var errs = [];
-      var FILES = ['app', 'config', 'fb', 'data', 'ui', 'player', 'runner', 'linkcheck', 'onboarding', 'chat', 'emulator']
+      var FILES = ['app', 'config', 'access', 'fb', 'data', 'ui', 'player', 'runner', 'linkcheck', 'onboarding', 'chat', 'emulator']
         .map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'data/seed.json']);
       // Re-download every file past the browser cache, then reload.
       window.ggRefreshFiles = function () {

@@ -1,7 +1,8 @@
 /* Green Grass — Admin dashboard.
-   Access: Google sign-in + CONFIG.ADMIN_EMAILS (UI) + firestore.rules (server). */
-import { CONFIG, isFirebaseConfigured, isAdminEmail } from './config.js';
-import { getFB, signInGoogle, signOut, onUser } from './fb.js';
+   Access: owner (CONFIG.OWNER_EMAIL) or a live admin code; enforced by firestore.rules. */
+import { CONFIG, isFirebaseConfigured } from './config.js';
+import { getFB, signInGoogle, signInGuest, signOut, onUser } from './fb.js';
+import { adminStatus, redeemCode, generateCode } from './access.js';
 import { loadSeed, mergeSettings } from './data.js';
 import {
   $, $$, esc, icon, md, toast, modal, confirmDialog, slugify, fmtDate, timeAgo, fmtBytes,
@@ -13,8 +14,8 @@ applyTheme();
 installIcons();
 
 const CHUNK = 300000; // chars per Firestore chunk doc (< 1 MiB even for 3-byte chars)
-let fb, db, fs, me;
-const S = { games: [], links: [], patchnotes: [], reports: [], bans: [], settings: {} };
+let fb, db, fs, me, access = {};
+const S = { games: [], links: [], patchnotes: [], reports: [], bans: [], codes: [], settings: {} };
 let section = store.get('gg.admin.section', 'overview');
 
 const SECTIONS = [
@@ -26,6 +27,7 @@ const SECTIONS = [
   { id: 'reports', label: 'Reports', icon: 'inbox' },
   { id: 'settings', label: 'Settings', icon: 'sliders' },
   { id: 'backup', label: 'Backup', icon: 'database' },
+  { id: 'codes', label: 'Admin codes', icon: 'shield', owner: true },
 ];
 const LINK_CATS = { static: 'Unblocked static site', useful: 'Useful site', tools: 'Tools & source code' };
 const NOTE_TAGS = ['new', 'fix', 'improvement', 'notice'];
@@ -47,8 +49,8 @@ async function boot() {
         <li>Create a project at <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a>.</li>
         <li><strong>Build → Authentication</strong> → enable <em>Google</em>. Add your GitHub Pages domain under <em>Settings → Authorized domains</em>.</li>
         <li><strong>Build → Firestore Database</strong> → create a database (production mode).</li>
-        <li>Open <strong>Firestore → Rules</strong>, paste <code>firestore.rules</code> from this repo, put your two admin emails in it, and Publish.</li>
-        <li><strong>Project settings → Your apps → Web</strong> → copy the config into <code>assets/js/config.js</code>, and set <code>ADMIN_EMAILS</code>.</li>
+        <li>Open <strong>Firestore → Rules</strong>, paste <code>firestore.rules</code> from this repo, put your owner email in it, and Publish.</li>
+        <li><strong>Project settings → Your apps → Web</strong> → copy the config into <code>assets/js/config.js</code>, and set <code>OWNER_EMAIL</code>.</li>
         <li>Commit, push, reload this page.</li>
       </ol>
       <p class="muted small">Full walkthrough: <code>SETUP.md</code></p>`);
@@ -62,21 +64,52 @@ async function boot() {
   onUser(async (u) => {
     me = u;
     if (!u) {
-      gate(`<h1>Admin sign in</h1><p class="muted">Only whitelisted accounts can access the dashboard.</p>
+      gate(`<h1>Admin sign in</h1><p class="muted">Sign in, then enter your admin code if you have one.</p>
         <button class="btn primary lg" data-in>${icon('user')}<span>Sign in with Google</span></button>
+        <button class="btn ghost" data-guest>Continue without Google</button>
+        <p class="muted small">Use a personal Google account. School accounts may be blocked by your district.</p>
         <a class="muted small" href="./">Back to site</a>`);
       $('[data-in]').onclick = () => signInGoogle().catch((e) => toast(e.message, 'error'));
+      $('[data-guest]').onclick = () => signInGuest().catch((e) => toast(
+        /admin-restricted|operation-not-allowed/.test(e.code || '') ? 'Guest sign-in is off. The owner needs to enable Anonymous sign-in in Firebase.' : e.message, 'error', 6000));
       return;
     }
-    if (u.isAnonymous || !u.emailVerified || !isAdminEmail(u.email)) {
-      gate(`<h1>Access denied</h1><p class="muted"><strong>${esc(u.email || 'Guest account')}</strong> isn't on the admin whitelist.</p>
-        <div class="row gap"><button class="btn" data-out>${icon('logout')}<span>Sign out</span></button><a class="btn ghost" href="./">Back to site</a></div>`);
-      $('[data-out]').onclick = () => signOut();
-      return;
-    }
+    gate(`<div class="boot">${icon('refresh', 'xl spin')}</div>`);
+    access = await adminStatus(fb, u);
+    if (!access.admin) return codeGate(u);
     await loadAll();
     shell();
   });
+}
+
+function codeGate(u) {
+  const who = u.isAnonymous ? 'Guest session' : (u.email || 'Your account');
+  gate(`<h1>Enter admin code</h1>
+    <p class="muted">${access.stale ? 'Your previous admin code was revoked. ' : ''}Signed in as <strong>${esc(who)}</strong>. Ask the owner for an admin code.</p>
+    <form class="stack code-form" data-form>
+      <input class="input code-input" data-code placeholder="GG-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" maxlength="24"/>
+      <button class="btn primary lg" type="submit">${icon('shieldCheck')}<span>Unlock dashboard</span></button>
+    </form>
+    ${u.isAnonymous ? '<p class="muted small">Guest admin access only lasts on this browser. If you clear your browser data you’ll need a new code.</p>' : ''}
+    <div class="row gap"><button class="btn ghost" data-out>${icon('logout')}<span>Sign out</span></button><a class="btn ghost" href="./">Back to site</a></div>`);
+  $('[data-out]').onclick = () => signOut();
+  const input = $('[data-code]');
+  input.focus();
+  $('[data-form]').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $('[data-form] button');
+    btn.disabled = true;
+    try {
+      await redeemCode(fb, u, input.value);
+      toast('Admin access granted', 'success');
+      access = await adminStatus(fb, u);
+      await loadAll();
+      shell();
+    } catch (err) {
+      toast(err.message, 'error', 5000);
+      btn.disabled = false;
+    }
+  };
 }
 
 /* =================================================================
@@ -99,6 +132,10 @@ async function loadAll() {
   S.patchnotes = list(n).sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
   S.reports = list(r);
   S.bans = list(b);
+  S.codes = access.owner
+    ? list(await fs.getDocs(fs.collection(db, 'adminCodes')).catch(() => ({ docs: [] })))
+      .sort((x, y) => (y.createdAt?.seconds || 0) - (x.createdAt?.seconds || 0))
+    : [];
   S.settingsExists = s.exists();
   S.settings = mergeSettings(s.exists() ? s.data() : (await loadSeed()).settings);
 }
@@ -119,13 +156,13 @@ function shell() {
     <aside class="sidebar">
       <a class="brand" href="./">${LOGO_SVG}<span>${esc(CONFIG.siteName)}<small class="admin-tag">Admin</small></span></a>
       <nav class="nav"><div class="nav-group">
-        ${SECTIONS.map((s) => `<a class="nav-item" href="#" data-s="${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.id === 'reports' && openReports ? `<span class="nav-count">${openReports}</span>` : ''}</a>`).join('')}
+        ${SECTIONS.filter((s) => !s.owner || access.owner).map((s) => `<a class="nav-item" href="#" data-s="${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.id === 'reports' && openReports ? `<span class="nav-count">${openReports}</span>` : ''}</a>`).join('')}
       </div>
       <div class="nav-group"><span class="nav-label">Site</span>
         <a class="nav-item" href="./" target="_blank">${icon('external')}<span>View site</span></a>
       </div></nav>
       <div class="sidebar-foot">
-        <div class="me-card">${me.photoURL ? `<img src="${esc(me.photoURL)}" alt="" referrerpolicy="no-referrer"/>` : ''}<div class="me-meta"><strong>${esc(me.displayName || 'Admin')}</strong><span class="muted small">${esc(me.email)}</span></div></div>
+        <div class="me-card">${me.photoURL ? `<img src="${esc(me.photoURL)}" alt="" referrerpolicy="no-referrer"/>` : ''}<div class="me-meta"><strong>${esc(me.displayName || (me.isAnonymous ? 'Guest admin' : 'Admin'))}</strong><span class="muted small">${access.owner ? 'Owner' : 'Admin'}${me.email ? ' · ' + esc(me.email) : ''}</span></div></div>
         <div class="row gap-sm">
           <button class="icon-btn" data-theme-toggle title="Toggle theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>
           <button class="icon-btn" data-refresh title="Reload data">${icon('refresh')}</button>
@@ -153,6 +190,7 @@ function shell() {
 }
 
 function go(s) {
+  if (!SECTIONS.some((x) => x.id === s && (!x.owner || access.owner))) s = 'overview';
   section = s; store.set('gg.admin.section', s);
   document.body.classList.remove('nav-open');
   $$('[data-s]').forEach((a) => a.classList.toggle('active', a.dataset.s === s));
@@ -163,7 +201,7 @@ function go(s) {
   view.innerHTML = '';
   $('[data-actions]').innerHTML = '';
   view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter');
-  ({ overview, games, links, notes, chat, reports, settings, backup })[s](view);
+  ({ overview, games, links, notes, chat, reports, settings, backup, codes })[s](view);
 }
 const actions = (html) => { $('[data-actions]').innerHTML = html; return $('[data-actions]'); };
 
@@ -203,7 +241,7 @@ function overview(view) {
   const runHealth = async () => {
     const rows = [
       [true, 'Firebase connected', `Project ${esc(CONFIG.firebase.projectId)}`],
-      [true, 'Signed in as admin', esc(me.email)],
+      [true, access.owner ? 'Signed in as owner' : 'Signed in with admin code', esc(me.email || 'Guest session')],
     ];
     hl.innerHTML = rows.map((r) => row(...r)).join('') + row(null, 'Security rules', 'Testing admin write…') + row(null, 'Emulator backend', 'Testing…');
     let rulesOk = false;
@@ -880,6 +918,60 @@ function backup(view) {
       toast('Import complete', 'success'); await loadAll(); shell();
     } catch (err) { toast(err.message, 'error', 6000); }
   };
+}
+
+/* =================================================================
+   ADMIN CODES (owner only)
+   ================================================================= */
+function codes(view) {
+  const bar = actions(`<input class="input code-label" data-label maxlength="40" placeholder="Label (optional), e.g. For Ethan"/><button class="btn primary" data-gen>${icon('plus')}<span>Generate code</span></button>`);
+  const used = S.codes.filter((c) => c.redeemedBy).length;
+  view.innerHTML = `
+  <div class="callout callout-note">${icon('info')}<div><strong>How admin codes work</strong>
+    <p>Each code gives <strong>one person</strong> admin access. They sign in at <code>/admin.html</code> (personal Google account, or "Continue without Google") and enter the code. <strong>Delete a code to remove that person's access instantly.</strong> Only you can see this page.</p></div></div>
+  <div class="row between"><span class="muted small">${S.codes.length} code${S.codes.length === 1 ? '' : 's'} · ${used} in use · ${S.codes.length - used} unused</span></div>
+  <div class="table-wrap card flush"><table class="table">
+    <thead><tr><th>Code</th><th>Label</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <tbody>${S.codes.length ? S.codes.map((c) => `<tr data-id="${esc(c.id)}">
+      <td><div class="row gap-sm"><code class="code-chip">${esc(c.id)}</code><button class="icon-btn sm" data-copy title="Copy">${icon('copy')}</button></div></td>
+      <td>${esc(c.label || '') || '<span class="muted">—</span>'}</td>
+      <td>${c.redeemedBy
+        ? `<div class="row gap-sm"><span class="badge badge-accent">${icon('check')}In use</span><span class="small">${esc(c.redeemedName || c.redeemedEmail || 'Guest')}${c.redeemedEmail && c.redeemedName ? ` <span class="muted">· ${esc(c.redeemedEmail)}</span>` : ''}</span></div>`
+        : '<span class="badge badge-muted">Unused</span>'}</td>
+      <td class="muted small">${c.createdAt ? timeAgo(c.createdAt) : ''}</td>
+      <td class="row-actions"><button class="btn sm ghost" data-del>${icon('trash')}<span>${c.redeemedBy ? 'Revoke' : 'Delete'}</span></button></td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">${icon('shield', 'xl')}<p class="muted">No codes yet. Click <strong>Generate code</strong>.</p></div></td></tr>`}</tbody>
+  </table></div>`;
+
+  $('[data-gen]', bar).onclick = async () => {
+    const label = $('[data-label]', bar).value.trim().slice(0, 40);
+    const code = generateCode();
+    try {
+      await fs.setDoc(fs.doc(db, 'adminCodes', code), { label, redeemedBy: null, createdAt: fs.serverTimestamp() });
+      S.codes.unshift({ id: code, label, redeemedBy: null, createdAt: new Date() });
+      navigator.clipboard?.writeText(code).catch(() => {});
+      toast(`Generated ${code} (copied)`, 'success', 4000);
+      go('codes');
+    } catch (e) { toast(e.message, 'error'); }
+  };
+  $$('tr[data-id]', view).forEach((tr) => {
+    const c = S.codes.find((x) => x.id === tr.dataset.id);
+    $('[data-copy]', tr).onclick = () => navigator.clipboard?.writeText(c.id).then(() => toast('Code copied', 'success', 1400));
+    $('[data-del]', tr).onclick = async () => {
+      const who = c.redeemedName || c.redeemedEmail || 'this person';
+      const ok = await confirmDialog(c.redeemedBy ? `Revoke ${c.id}? ${who} will lose admin access immediately.` : `Delete unused code ${c.id}?`, { okLabel: c.redeemedBy ? 'Revoke' : 'Delete', danger: true });
+      if (!ok) return;
+      try {
+        const batch = fs.writeBatch(db);
+        batch.delete(fs.doc(db, 'adminCodes', c.id));
+        if (c.redeemedBy) batch.delete(fs.doc(db, 'admins', c.redeemedBy));
+        await batch.commit();
+        S.codes = S.codes.filter((x) => x.id !== c.id);
+        toast(c.redeemedBy ? `Access revoked for ${who}` : 'Code deleted', 'success');
+        go('codes');
+      } catch (e) { toast(e.message, 'error'); }
+    };
+  });
 }
 
 boot();
