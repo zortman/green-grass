@@ -27,15 +27,15 @@ export const CONFIG = {
      Paste the config object here. Leave apiKey empty to run the site
      in "static mode" (reads data/seed.json, chat + admin disabled).
      --------------------------------------------------------------- */
- const firebaseConfig = {
-  apiKey: "AIzaSyC6PRDrPFWAkUzv3qO2GrSCzerzvn8bFb8",
-  authDomain: "green-grass-43043.firebaseapp.com",
-  projectId: "green-grass-43043",
-  storageBucket: "green-grass-43043.firebasestorage.app",
-  messagingSenderId: "206641525930",
-  appId: "1:206641525930:web:221c6024fdb209e3cb8cd3",
-  measurementId: "G-LMQ3M9MRB3"
-};
+  firebase: {
+    apiKey: 'AIzaSyC6PRDrPFWAkUzv3qO2GrSCzerzvn8bFb8',
+    authDomain: 'green-grass-43043.firebaseapp.com',
+    projectId: 'green-grass-43043',
+    storageBucket: 'green-grass-43043.firebasestorage.app',
+    messagingSenderId: '206641525930',
+    appId: '1:206641525930:web:221c6024fdb209e3cb8cd3',
+    measurementId: 'G-LMQ3M9MRB3',
+  },
 
   /* ---------------------------------------------------------------
      DEFAULTS (can be overridden in Admin -> Settings)
