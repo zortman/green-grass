@@ -39,13 +39,27 @@ jobs:
       - name: Deploy to each project
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: |
+          # Strip stray spaces/newlines from pasted secrets.
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          if ! [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID should be 32 characters of 0-9/a-f (got ${#CLOUDFLARE_ACCOUNT_ID} characters). Copy it from Cloudflare -> Workers & Pages -> Account ID."
+            exit 1
+          fi
+          failed=0
           IFS=',' read -ra NAMES <<< "$CF_PROJECTS"
           for raw in "${NAMES[@]}"; do
             name="$(echo "$raw" | tr -d '[:space:]')"
             [ -z "$name" ] && continue
             echo "::group::$name"
-            npx --yes wrangler@3 pages project create "$name" --production-branch main 2>/dev/null || true
-            npx --yes wrangler@3 pages deploy /tmp/site --project-name "$name" --branch main --commit-dirty=true
-            echo "Live: https://$name.pages.dev"
+            out="$(npx --yes wrangler@3 pages project create "$name" --production-branch main 2>&1)" || {
+              echo "$out" | grep -qiE 'already exists|8000002' || { echo "$out"; echo "::error::Could not create project $name"; failed=1; echo "::endgroup::"; continue; }
+            }
+            if npx --yes wrangler@3 pages deploy /tmp/site --project-name "$name" --branch main --commit-dirty=true; then
+              echo "Live: https://$name.pages.dev (if the name was taken, see the URL printed above)"
+            else
+              echo "::error::Deploy to $name failed"; failed=1
+            fi
             echo "::endgroup::"
           done
+          exit $failed
