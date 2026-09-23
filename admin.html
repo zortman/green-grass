@@ -15,6 +15,33 @@
 </head>
 <body>
   <div id="admin"></div>
+  <script>
+    // If the dashboard fails to boot (usually stale cached files), refresh them once, then show the error.
+    (function () {
+      var errs = [];
+      var FILES = ['admin', 'config', 'access', 'fb', 'data', 'ui', 'runner']
+        .map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'assets/css/admin.css']);
+      window.ggRefreshFiles = function () {
+        Promise.all(FILES.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }))
+          .then(function () { location.reload(); });
+      };
+      function show() {
+        var root = document.getElementById('admin');
+        if (root.children.length) return;
+        var tried = false;
+        try { tried = sessionStorage.getItem('gg.adminRetry') === '1'; sessionStorage.setItem('gg.adminRetry', '1'); } catch (e) { tried = true; }
+        if (!tried) { window.ggRefreshFiles(); return; }
+        root.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:28px;font:15px/1.6 system-ui,sans-serif;color:#e9f5ee;background:#0c1711;border:1px solid rgba(170,255,200,.13);border-radius:18px"><h2 style="margin:0 0 8px;font-size:20px">Dashboard didn’t start</h2><pre style="white-space:pre-wrap;background:#050a07;padding:12px;border-radius:10px;font-size:12.5px;color:#ff9aa2"></pre><button onclick="ggRefreshFiles()" style="font:600 14px system-ui;padding:10px 18px;border-radius:10px;border:0;background:#3ee07f;color:#03140a;cursor:pointer">Reload fresh copy</button></div>';
+        root.querySelector('pre').textContent = errs.join('\n') || 'The dashboard script did not load (timed out).';
+      }
+      window.addEventListener('error', function (e) {
+        var t = e.target;
+        errs.push(t && (t.src || t.href) ? 'Could not load: ' + (t.src || t.href) : (e.message || 'Error') + (e.filename ? '\n  at ' + e.filename.split('/').slice(-3).join('/') + ':' + e.lineno : ''));
+        setTimeout(show, 50);
+      }, true);
+      setTimeout(show, 8000);
+    })();
+  </script>
   <script type="module" src="assets/js/admin.js"></script>
 </body>
 </html>

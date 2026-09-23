@@ -42,6 +42,7 @@ function gate(inner) {
 }
 
 async function boot() {
+  try { sessionStorage.removeItem('gg.adminRetry'); } catch {}
   if (!isFirebaseConfigured()) {
     gate(`<h1>Admin setup</h1>
       <p class="muted">The dashboard needs Firebase. It's free and takes about 10 minutes.</p>
