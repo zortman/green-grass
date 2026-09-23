@@ -540,6 +540,7 @@ async function boot() {
   const cached = getCached();
   if (cached) Object.assign(site, cached);
   renderShell();
+  try { sessionStorage.removeItem('gg.bootRetry'); } catch {}
   if (cached) { renderAnnouncement(); route(); }
   else $('#view').innerHTML = `<div class="boot">${icon('refresh', 'xl spin')}</div>`;
 
