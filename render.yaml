@@ -1,0 +1,20 @@
+# Render Blueprint — deploys Green Grass as a free static site.
+# https://render.com/deploy?repo=https://github.com/zortman/green-grass
+services:
+  - type: web
+    name: green-grass
+    runtime: static
+    buildCommand: echo "No build step"
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
+    headers:
+      # Always revalidate scripts/styles so updates show up immediately.
+      - path: /assets/js/*
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/css/*
+        name: Cache-Control
+        value: no-cache
+      - path: /*.html
+        name: Cache-Control
+        value: no-cache
