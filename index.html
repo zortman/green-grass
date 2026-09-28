@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/app.css" />
+  <link rel="stylesheet" href="gate.css" />
   <script>
     // Apply saved theme before paint to avoid a flash.
     try {
@@ -21,6 +22,38 @@
   </script>
 </head>
 <body>
+  <!-- Green Grass entrance gate -->
+  <div id="green-grass-gate" aria-label="Green Grass entrance">
+    <div class="gg-gate-content">
+      <div class="gg-gate-google" aria-hidden="true">
+        <span class="blue">G</span><span class="red">o</span><span class="yellow">o</span><span class="blue">g</span><span class="green">l</span><span class="red">e</span>
+      </div>
+
+      <form id="gg-gate-form" class="gg-gate-search" autocomplete="off">
+        <span class="gg-gate-search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4.5 4.5"></path>
+          </svg>
+        </span>
+        <input
+          id="gg-gate-input"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="Search Google or type a URL"
+          aria-label="Search"
+          autofocus
+        />
+        <button class="gg-gate-mic" type="button" tabindex="-1" aria-hidden="true">⌕</button>
+      </form>
+
+      <div id="gg-gate-error" class="gg-gate-error" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
   <noscript><p style="padding:40px;font-family:system-ui">Green Grass needs JavaScript enabled.</p></noscript>
   <div id="boot-fallback" style="display:none;max-width:560px;margin:12vh auto;padding:28px;font:15px/1.6 system-ui,sans-serif;color:#e9f5ee;background:#0c1711;border:1px solid rgba(170,255,200,.13);border-radius:18px">
     <h2 style="margin:0 0 8px;font-size:20px">Green Grass didn't start</h2>
@@ -34,14 +67,12 @@
       var errs = [];
       var FILES = ['app', 'config', 'access', 'fb', 'data', 'ui', 'player', 'runner', 'linkcheck', 'onboarding', 'chat', 'emulator']
         .map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'data/seed.json']);
-      // Re-download every file past the browser cache, then reload.
       window.ggRefreshFiles = function () {
         Promise.all(FILES.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }))
           .then(function () { location.reload(); });
       };
       function show() {
         if (document.querySelector('.app')) return;
-        // First failure this session: silently refresh cached files once.
         var tried = false;
         try { tried = sessionStorage.getItem('gg.bootRetry') === '1'; sessionStorage.setItem('gg.bootRetry', '1'); } catch (e) { tried = true; }
         if (!tried) { window.ggRefreshFiles(); return; }
@@ -58,6 +89,7 @@
       setTimeout(show, 8000);
     })();
   </script>
+  <script src="gate.js"></script>
   <script type="module" src="assets/js/app.js?v=3"></script>
 </body>
 </html>
